@@ -256,7 +256,7 @@ overall_confidence = n / sum(1 / max(c_i, eps) for c_i in step_confidences)
 - `eps = 0.01` floor avoids divide-by-zero while still letting near-zero values dominate.
 - **Degraded or skipped agent** (TC011 path): contributes a `penalty_confidence` (default `0.5`) rather than being skipped, so degradation always surfaces in the headline number. Recorded in trace as `confidence: 0.5 [degraded penalty applied]`. A 0.5 mixed with four 0.95s drops overall from ~0.95 to ~0.78 — the assignment §6 behavior, made mechanical.
 - **Halt outcomes**: compute over steps that actually ran; for halts the user-facing message matters more than the confidence number, but it's still recorded.
-- Lives in `app/pipeline/confidence.py` with full unit-test coverage in `test_confidence.py`. Adjudication agent reads `tracer.harmonic_confidence()` and stores it on `ClaimRecord.confidence`.
+- Lives in `claims_pipeline/pipeline/confidence.py` with full unit-test coverage in `test_confidence.py`. Adjudication agent reads `tracer.harmonic_confidence()` and stores it on `ClaimRecord.confidence`.
 
 ---
 
@@ -264,14 +264,14 @@ overall_confidence = n / sum(1 / max(c_i, eps) for c_i in step_confidences)
 
 - **Backend**: FastAPI, Pydantic v2, SQLAlchemy + SQLite, `uvicorn`. Producer/consumer over Redis using plain `redis-py` `BLPOP` (no Celery).
 - **Workers**: two Python processes, both consume-loops, same codebase:
-  - `python -m app.workers.claim_worker` — `BLPOP claims:queue` -> orchestrator -> persist
-  - `python -m app.workers.llm_worker` — `BLPOP llm:queue` -> rate-limit -> Gemini -> persist `LLMCall` -> `LPUSH llm:resp:{req_id}`
+  - `python -m claims_pipeline.workers.claim_worker` — `BLPOP claims:queue` -> orchestrator -> persist
+  - `python -m claims_pipeline.workers.llm_worker` — `BLPOP llm:queue` -> rate-limit -> Gemini -> persist `LLMCall` -> `LPUSH llm:resp:{req_id}`
 - **Frontend**: **Streamlit** single app with sidebar nav (Submit / Claims / Detail / Test Runner / Robustness / Analytics / Policy). Calls FastAPI via `httpx`. `st.session_state` for polling.
 - **LLM**: `LLMProvider` ABC kept deliberately generic so a GPT-5+ or Claude-4+ adapter is a drop-in. We ship one concrete impl:
   - `GeminiProvider` — `gemini-3-flash-preview` (May 2026), vision + `response_json_schema` + Pydantic validation. Used by tests, robustness eval, and the LLM worker.
   - `RedisLLMProvider` — async; LPUSH request, BLPOP response with timeout. Used by the claim worker's orchestrator at runtime. (This is the *transport* — wraps any underlying LLMProvider on the worker side.)
 - **Model**: `LLM_MODEL` env var. Default `gemini-3-flash-preview` — sufficient for structured extraction from rendered medical documents, ~5-10x cheaper and faster than Pro. `gemini-3.1-pro-preview` is the escape hatch if Flash misclassifies a variant in the robustness eval; the empirical answer beats over-spec'ing the model up front.
-- **Infra**: `docker-compose.yml` brings up Redis only (api/workers/ui run via Python for fast iteration). One `.env` for `GEMINI_API_KEY`, `LLM_MODEL`, `REDIS_URL`, `DATABASE_URL`, `LLM_RATE_LIMIT_RPM` (cost-control + provider-friendly throttle, not a free-tier hack).
+- **Infra**: `docker-compose.yml` can bring up **Redis only** for local dev or the **full stack** (Redis + API + both workers + Streamlit via [`Dockerfile`](Dockerfile)). One `.env` for `GEMINI_API_KEY`, `LLM_MODEL`, `REDIS_URL`, `DATABASE_URL`, `LLM_RATE_LIMIT_RPM` (cost-control + provider-friendly throttle, not a free-tier hack).
 - **Tests**: `pytest` + `pytest-asyncio`. Suites: official 12 cases (in-process, no Redis, no LLM — fixture content), policy-engine units, pipeline degradation, policy versioning, RedisLLMProvider timeout path.
 - **Eval**: `scripts/run_eval.py` (fixture, in-process, 12/12 CI gate) and `scripts/run_robustness_eval.py` (12 x 4 variants via direct GeminiProvider, ~48 runs, writes ROBUSTNESS_REPORT.md).
 - **Out of scope for v1**: auth, Postgres, Celery, Kubernetes, real BigQuery export, autoscaling worker pools. Each documented in `ARCHITECTURE.md` "Considered and rejected" with the migration path.
@@ -281,78 +281,48 @@ overall_confidence = n / sum(1 / max(c_i, eps) for c_i in step_confidences)
 ## Repo layout
 
 ```
-backend/
-  app/
-    main.py                  # FastAPI app + routes
-    db.py                    # SQLAlchemy engine, session, ORM models
-    schemas.py               # Pydantic: ClaimSubmission, ClaimDecision, TraceStep, LLMCall, ExtractedDoc
-    policy.py                # PolicyService: seeding, version cache, content-hash
-    queue.py                 # Redis wrappers (enqueue_claim, request_llm, await_response, rate_limiter)
+src/
+  claims_pipeline/         # one installable package (`pip install -e .`)
+    main.py                # FastAPI app + routes
+    streamlit_app.py       # Streamlit (httpx → API)
+    db.py
+    schemas.py
+    policy.py
+    queue.py
     workers/
-      claim_worker.py        # BLPOP claims:queue -> orchestrator with RedisLLMProvider injected
-      llm_worker.py          # BLPOP llm:queue -> token-bucket -> Gemini -> persist LLMCall -> LPUSH resp
+      claim_worker.py
+      llm_worker.py
     pipeline/
-      orchestrator.py        # async run() with phase split, safe_run, degraded_components
-      tracer.py              # OpsTracer (TraceStep) + LLMTracer (LLMCall), ContextVar-based
-      confidence.py          # harmonic_mean(step_confidences) with eps floor + penalty for degraded
-      agents/
-        intake.py
-        doc_verification.py
-        readability.py
-        extraction.py
-        cross_validation.py
-        policy_engine.py
-        fraud.py
-        adjudication.py
+      orchestrator.py
+      tracer.py
+      confidence.py
+      agents/ ...
     llm/
-      base.py                # LLMProvider ABC
-      gemini.py              # GeminiProvider (direct call; used by llm_worker, tests, eval)
-      redis_provider.py      # RedisLLMProvider (req/resp over Redis; used by claim_worker)
-    analytics.py             # decision_events queries for the Analytics tab
-  scripts/
-    run_eval.py              # fixture-driven; writes docs/EVAL_REPORT.md (CI gate)
-    run_robustness_eval.py   # 12 x 4 variants via Gemini; writes docs/ROBUSTNESS_REPORT.md
-    gen_sample_docs.py       # HTML + Playwright + cv2 + Gemini image gen (maintainer tool)
-    seed_demo.py             # a few demo claims for the UI
-  templates/
-    prescription.html.j2     # Jinja2, fed from test_cases.json content
-    hospital_bill.html.j2
-    lab_report.html.j2
-    pharmacy_bill.html.j2
+      base.py
+      gemini.py
+      redis_provider.py
+    analytics.py
+scripts/                   # repo root (eval helpers)
+  run_eval.py
+  run_robustness_eval.py
+  gen_sample_docs.py
+tests/
+  test_official_cases.py
+  test_policy_math.py
+  test_degradation.py
+  test_policy_versioning.py
+  test_confidence.py
 fixtures/
-  docs/                      # committed to git so graders never run the generator
-    TC004/F007_clean.png     # Playwright screenshot
-    TC004/F007_clean.pdf     # Playwright page.pdf (only for ~2 selected cases)
-    TC004/F007_handwritten.png  # Gemini image gen + content verified
-    TC004/F007_phone_photo.png  # cv2 transform of clean
-    TC004/F007_blurry.png       # cv2 transform of clean
-    ...                      # mirrored for every doc in TC004-TC012
-  tests/
-    test_official_cases.py
-    test_policy_math.py
-    test_degradation.py
-    test_policy_versioning.py
-    test_confidence.py
-ui/
-  app.py                     # Streamlit entry point with sidebar nav
-  pages/
-    1_Submit.py
-    2_Claims.py
-    3_Detail.py
-    4_Test_Runner.py
-    5_Robustness.py
-    6_Analytics.py
-    7_Policy.py
-  components/
-    trace_viewer.py
-    financial_breakdown.py
-    api_client.py            # httpx wrapper around FastAPI
+  docs/                    # optional generated doc images for robustness
+policy_terms.json
+test_cases.json
 docs/
   ARCHITECTURE.md
   COMPONENT_CONTRACTS.md
   EVAL_REPORT.md             # generated
   ROBUSTNESS_REPORT.md       # generated
-docker-compose.yml           # Redis only
+Dockerfile
+docker-compose.yml           # Redis only OR full stack (see README)
 .env.example
 README.md                    # quickstart: 4 commands (compose up redis, run api, run worker, run ui)
 ```
@@ -396,7 +366,7 @@ These cuts go in `ARCHITECTURE.md` under "Considered and rejected" — explicit 
 - [ ] **policy-seed** — On API startup, hash `policy_terms.json` contents; if no `policy_versions` row matches, insert a new version. `ClaimRecord` stores `policy_version_id` (FK). Admin endpoint `POST /admin/policy` uploads new version. `PolicyService` loads active version into memory cache.
 - [ ] **tracer** — Two-tier tracer. `ContextVar`-based `OpsTracer` emits `TraceStep` (stage, status, findings, inputs/outputs summary, duration_ms, confidence). `LLMTracer` emits `LLMCall` (prompt, response, model, tokens, latency, retries, parse_status). Both write to DB; events also published to Redis channel `claims:{id}:events`. `safe_run` decorator + `degraded_components` + per-step confidence. Overall confidence aggregated via harmonic mean (F1-style); degraded steps contribute a penalty (default 0.5); epsilon floor 0.01.
 - [ ] **agents-deterministic** — 7 deterministic agents: `IntakeAgent`, `DocumentVerificationAgent` (TC001 specific message), `ReadabilityAgent` (TC002 `NEEDS_REUPLOAD`), `CrossValidationAgent` (TC003 name diff), `PolicyEngine` (waiting/exclusion/pre-auth/limits), `FraudAgent` (same-day/monthly/high-value), `AdjudicationAgent` (TC010 financial ordering).
-- [ ] **orchestrator-claim-worker** — Async Orchestrator with phase split. Claim worker (`app.workers.claim_worker`) `BLPOP`s `claims:queue`, runs orchestrator with the injected `LLMProvider`, persists trace + decision + decision_event. API enqueues. TC011 hook simulates `FraudAgent` failure.
+- [ ] **orchestrator-claim-worker** — Async Orchestrator with phase split. Claim worker (`claims_pipeline.workers.claim_worker`) `BLPOP`s `claims:queue`, runs orchestrator with the injected `LLMProvider`, persists trace + decision + decision_event. API enqueues. TC011 hook simulates `FraudAgent` failure.
 - [ ] **llm-worker-and-provider** — `LLMProvider` ABC kept generic. `GeminiProvider` implements `gemini-3-flash-preview` (vision + `response_json_schema` + Pydantic validation). `RedisLLMProvider` (LPUSH `llm:queue` with `req_id`, BLPOP `llm:resp:{req_id}` with timeout) used by claim worker. LLM worker `BLPOP`s `llm:queue`, applies token-bucket rate limit, calls Gemini, writes `LLMCall`, LPUSH response. Timeout/error -> `LLMTimeoutError` -> `safe_run` -> `degraded_components`.
 - [ ] **tests** — `test_official_cases.py` (12 TCs, in-process, fixture content), `test_policy_math.py` (TC010 ordering, sub-limit, line-item filter), `test_degradation.py` (TC011 harmonic-mean drop with penalty value, no crash), `test_policy_versioning.py`, `test_confidence.py` (harmonic mean unit tests).
 - [ ] **api-routes** — `POST /claims`, `GET /claims/:id`, `GET /claims`, `GET /policy/active`, `GET /policy/versions`, `POST /admin/policy`, `POST /eval/run` (fixture), `POST /eval/robustness` (LLM), `GET /analytics/decisions`, `GET /analytics/decisions.csv`, `GET /health`.

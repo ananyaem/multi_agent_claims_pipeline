@@ -15,7 +15,21 @@ DocumentType = Literal[
     "DISCHARGE_SUMMARY",
     "DIAGNOSTIC_REPORT",
     "DENTAL_REPORT",
+    "OTHERS",
 ]
+
+KNOWN_DOCUMENT_TYPE_STRINGS = frozenset(
+    {
+        "PRESCRIPTION",
+        "HOSPITAL_BILL",
+        "LAB_REPORT",
+        "PHARMACY_BILL",
+        "DISCHARGE_SUMMARY",
+        "DIAGNOSTIC_REPORT",
+        "DENTAL_REPORT",
+        "OTHERS",
+    }
+)
 
 
 class DocumentInput(BaseModel):
@@ -25,6 +39,9 @@ class DocumentInput(BaseModel):
     quality: str | None = None  # GOOD | UNREADABLE
     patient_name_on_doc: str | None = None
     content: dict[str, Any] | None = None
+    # Populated when member uploads files via API (stored under upload_dir)
+    storage_relpath: str | None = None
+    mime_type: str | None = None
 
 
 class ClaimSubmission(BaseModel):

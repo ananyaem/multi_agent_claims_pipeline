@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
+from claims_pipeline.config import upload_root_path
 from claims_pipeline.pipeline.context import PipelineContext
 
 
@@ -35,6 +36,17 @@ def run_extraction(ctx: PipelineContext, llm: LLMExtractor | None) -> None:
             ctx.add_step_confidence(0.94)
             continue
         # No structured content: require LLM path (robustness / uploaded files)
+        raw_bytes: bytes | None = None
+        mime = doc.get("mime_type")
+        rel = doc.get("storage_relpath")
+        if rel:
+            path = upload_root_path() / rel
+            try:
+                if path.is_file() and path.resolve().is_relative_to(upload_root_path().resolve()):
+                    raw_bytes = path.read_bytes()
+            except (OSError, ValueError):
+                raw_bytes = None
+
         if llm is None:
             ctx.degraded_components.append("ExtractionAgent")
             row = {"file_id": fid, "actual_type": dtype, "data": {}}
@@ -43,7 +55,7 @@ def run_extraction(ctx: PipelineContext, llm: LLMExtractor | None) -> None:
             ctx.extracted_documents.append(row)
             ctx.add_step_confidence(0.4)
             continue
-        data, conf = llm.extract_document(ctx.claim_id, fid, dtype, None, None, "")
+        data, conf = llm.extract_document(ctx.claim_id, fid, dtype, raw_bytes, mime, "")
         row = {"file_id": fid, "actual_type": dtype, "data": data}
         if doc.get("patient_name_on_doc"):
             row["patient_name_on_doc"] = doc["patient_name_on_doc"]

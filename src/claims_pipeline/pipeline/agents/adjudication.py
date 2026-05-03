@@ -48,6 +48,26 @@ def run_adjudication(ctx: PipelineContext) -> None:
             ctx.confidence = aggregate_claim_confidence(ctx.step_confidences, ctx.degraded_components)
         return
 
+    cat_upper = (ctx.submission.get("claim_category") or "").upper()
+    has_others_attachment = any(
+        (d.get("actual_type") or "").upper() == "OTHERS" for d in ctx.submission.get("documents", [])
+    )
+    if cat_upper == "OTHERS" or has_others_attachment:
+        ctx.decision = "MANUAL_REVIEW"
+        ctx.approved_amount = None
+        ctx.member_message = (
+            "This claim includes an “Other” category or uncategorized documents and will be reviewed manually. "
+            "Our team will classify documents where possible and contact you if anything else is needed."
+        )
+        ctx.financial_breakdown = {
+            "route": "manual_review",
+            "reason": "OTHERS_CATEGORY" if cat_upper == "OTHERS" else "OTHERS_DOCUMENT_TYPE",
+        }
+        ctx.add_step_confidence(0.88)
+        if ctx.confidence is None:
+            ctx.confidence = aggregate_claim_confidence(ctx.step_confidences, ctx.degraded_components)
+        return
+
     line_items: list[dict[str, Any]] = []
     for ed in ctx.extracted_documents:
         data = ed.get("data") or {}

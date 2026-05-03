@@ -11,6 +11,18 @@ def run_document_verification(ctx: PipelineContext, policy: PolicyService) -> No
     reqs = policy.document_requirements(cat)
     required = reqs["required"]
     docs = ctx.submission.get("documents", [])
+
+    if cat == "OTHERS":
+        if not docs:
+            ctx.halted_reason = "NO_DOCUMENTS"
+            ctx.member_message = (
+                "For an “Other” category claim, please upload at least one document. "
+                "Use document type “OTHERS” if the file does not match a standard type — it will be queued for manual review."
+            )
+            ctx.add_step_confidence(0.95)
+            return
+        ctx.add_step_confidence(0.97)
+        return
     uploaded_types = [d.get("actual_type") for d in docs if d.get("actual_type")]
     counts = Counter(uploaded_types)
 

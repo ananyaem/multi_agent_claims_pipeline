@@ -8,7 +8,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 COPY requirements.txt pyproject.toml ./
 COPY src ./src
-COPY policy_terms.json ./
+COPY policy_terms.json test_cases.json ./
 
 RUN pip install --upgrade pip \
     && pip install -r requirements.txt \

@@ -15,7 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from claims_pipeline.analytics import decisions_csv, list_decision_events
-from claims_pipeline.config import ROOT, get_settings, upload_root_path
+from claims_pipeline.config import ROOT, TEST_CASES_PATH, get_settings, upload_root_path
 
 from claims_pipeline.db import Claim, PolicyVersion, TraceStepORM, init_db
 from claims_pipeline.meta import document_types_from_test_cases
@@ -407,8 +407,7 @@ def eval_run(db: Session = Depends(get_db)):
     from claims_pipeline.pipeline.orchestrator import run_pipeline_sync
     from claims_pipeline.policy import PolicyService
 
-    path = ROOT_DIR / "test_cases.json"
-    with open(path, encoding="utf-8") as f:
+    with open(TEST_CASES_PATH, encoding="utf-8") as f:
         bundle = json.load(f)
     pv_id, terms = get_active_policy_terms(db)
     svc = PolicyService(terms)

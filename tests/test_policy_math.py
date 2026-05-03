@@ -1,20 +1,18 @@
 import json
-from pathlib import Path
 
 import pytest
 
+from claims_pipeline.config import POLICY_PATH, TEST_CASES_PATH
 from claims_pipeline.pipeline.orchestrator import run_pipeline_sync
 from claims_pipeline.policy import PolicyService, load_policy_file
 
-ROOT = Path(__file__).resolve().parents[1]
-
-with open(ROOT / "test_cases.json", encoding="utf-8") as f:
+with open(TEST_CASES_PATH, encoding="utf-8") as f:
     TC = {c["case_id"]: c for c in json.load(f)["test_cases"]}
 
 
 @pytest.fixture
 def terms():
-    return load_policy_file(ROOT / "policy_terms.json")
+    return load_policy_file(POLICY_PATH)
 
 
 @pytest.fixture

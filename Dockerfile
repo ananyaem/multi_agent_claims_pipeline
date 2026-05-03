@@ -9,7 +9,7 @@ ENV PYTHONUNBUFFERED=1 \
 COPY requirements.txt pyproject.toml ./
 COPY .streamlit ./.streamlit
 COPY src ./src
-COPY policy_terms.json test_cases.json ./
+COPY assignment ./assignment
 
 RUN pip install --upgrade pip \
     && pip install -r requirements.txt \

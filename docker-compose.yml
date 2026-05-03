@@ -25,8 +25,10 @@ services:
     environment:
       REDIS_URL: redis://redis:6379/0
       DATABASE_URL: sqlite:////data/claims.db
+      UPLOAD_DIR: /data/uploads
     volumes:
       - claims_sqlite:/data
+      - claims_uploads:/data/uploads
     depends_on:
       redis:
         condition: service_healthy
@@ -52,8 +54,10 @@ services:
     environment:
       REDIS_URL: redis://redis:6379/0
       DATABASE_URL: sqlite:////data/claims.db
+      UPLOAD_DIR: /data/uploads
     volumes:
       - claims_sqlite:/data
+      - claims_uploads:/data/uploads
     depends_on:
       redis:
         condition: service_healthy
@@ -93,3 +97,4 @@ services:
 volumes:
   redis_data:
   claims_sqlite:
+  claims_uploads:

@@ -16,7 +16,7 @@ from claims_pipeline.db import Claim, DecisionEvent, init_db
 from claims_pipeline.llm.redis_provider import RedisLLMProvider
 from claims_pipeline.pipeline.orchestrator import run_pipeline_sync
 from claims_pipeline.policy import PolicyService, get_active_policy_terms, seed_policy_and_members
-from claims_pipeline.queue import redis_client
+from claims_pipeline.redis_support import redis_client, start_worker_heartbeat
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -59,6 +59,7 @@ def main() -> None:
     from claims_pipeline.db import SessionLocal
 
     r = redis_client()
+    start_worker_heartbeat(r, "claim")
     llm = RedisLLMProvider(r)
 
     logger.info("Claim worker on %s", settings.claims_queue)

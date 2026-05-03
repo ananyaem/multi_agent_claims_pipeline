@@ -85,6 +85,14 @@
       "max_sessions_per_year": 20,
       "covered_systems": ["Ayurveda", "Homeopathy", "Unani", "Siddha", "Naturopathy"],
       "covered": true
+    },
+    "others": {
+      "sub_limit": 5000,
+      "copay_percent": 10,
+      "network_discount_percent": 0,
+      "covered": true,
+      "manual_review_default": true,
+      "notes": "Uncategorized or mixed claims; default manual review"
     }
   },
   "waiting_periods": {
@@ -176,6 +184,11 @@
     "ALTERNATIVE_MEDICINE": {
       "required": ["PRESCRIPTION", "HOSPITAL_BILL"],
       "optional": []
+    },
+    "OTHERS": {
+      "required": [],
+      "optional": [],
+      "notes": "No fixed slots — use at least one upload; extras may be typed as OTHERS for manual review"
     }
   },
   "fraud_thresholds": {

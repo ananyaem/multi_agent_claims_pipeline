@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from claims_pipeline.config import get_settings
 from claims_pipeline.llm.gemini import GeminiProvider
-from claims_pipeline.queue import TokenBucket, redis_client
+from claims_pipeline.redis_support import TokenBucket, redis_client, start_worker_heartbeat
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 def main() -> None:
     settings = get_settings()
     r = redis_client()
+    start_worker_heartbeat(r, "llm")
     gemini = GeminiProvider()
     bucket = TokenBucket(settings.llm_rate_limit_rpm)
 

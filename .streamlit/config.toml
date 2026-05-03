@@ -1,0 +1,11 @@
+[server]
+# Match API `max_upload_bytes` (20 MiB) — Streamlit default is 200.
+maxUploadSize = 20
+
+[theme]
+# Plum-inspired palette (see assignment / brand tokens)
+primaryColor = "#EB4A50"
+backgroundColor = "#FCFBF8"
+secondaryBackgroundColor = "#F4F2EC"
+textColor = "#1D1D1F"
+font = "sans serif"

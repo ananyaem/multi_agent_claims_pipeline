@@ -262,7 +262,7 @@ img = Image.new('RGB', (800, 1000), color='white')
 draw = ImageDraw.Draw(img)
 draw.text((50, 50), "Dr. Arun Sharma", fill='black')
 # ... add text fields
-img.save("prescription.jpg")
+img.save("prescription.jpeg")
 ```
 
 **For blur/noise simulation:**

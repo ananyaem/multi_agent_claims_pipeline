@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 40px; margin: 0; background: white; }
+        .header { border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
+        .doctor-name { font-size: 24px; font-weight: bold; }
+        .patient-info { border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; }
+        .content { min-height: 400px; }
+        .diagnosis { font-weight: bold; margin-bottom: 20px; }
+        .rx { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
+        .medicines { margin-bottom: 30px; }
+        .footer { display: flex; justify-content: flex-end; margin-top: 50px; }
+        .signature { text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="doctor-name">{{ content.doctor_name | default('Dr. Arun Sharma') }}</div>
+        <div>Reg. No: {{ content.doctor_registration | default('KA/45678/2015') }}</div>
+        <div>City Medical Centre, 12 MG Road, Bengaluru</div>
+    </div>
+    
+    <div class="patient-info">
+        <div>
+            <strong>Patient:</strong> {{ content.patient_name | default('Rajesh Kumar') }}<br>
+            <strong>Age:</strong> 39 years &nbsp;&nbsp; <strong>Gender:</strong> M
+        </div>
+        <div>
+            <strong>Date:</strong> {{ content.date | default('01-Nov-2024') }}
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="diagnosis">Diagnosis: {{ content.diagnosis | default('Viral Fever') }}</div>
+        
+        {% if content.treatment %}
+        <div class="treatment">Treatment: {{ content.treatment }}</div>
+        {% endif %}
+
+        {% if content.medicines %}
+        <div class="rx">Rx:</div>
+        <div class="medicines">
+            <ol>
+            {% for med in content.medicines %}
+                <li>{{ med }}</li>
+            {% endfor %}
+            </ol>
+        </div>
+        {% endif %}
+
+        {% if content.tests_ordered %}
+        <div class="tests">
+            <strong>Investigations:</strong> {{ content.tests_ordered | join(', ') }}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="footer">
+        <div class="signature">
+            <div>_______________________</div>
+            <div>Doctor's Signature</div>
+        </div>
+    </div>
+</body>
+</html>

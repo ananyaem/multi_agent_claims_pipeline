@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 40px; margin: 0; background: white; }
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
+        .hospital-name { font-size: 24px; font-weight: bold; }
+        .bill-info { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #000; padding: 10px; text-align: left; }
+        th { background-color: #f0f0f0; }
+        .totals { width: 300px; float: right; }
+        .totals-row { display: flex; justify-content: space-between; padding: 5px 0; }
+        .totals-row.bold { font-weight: bold; border-top: 1px solid #000; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="hospital-name">{{ content.hospital_name | default('CITY MEDICAL CENTRE') }}</div>
+        <div>12 MG Road, Bengaluru - 560001</div>
+        <div>BILL / RECEIPT</div>
+    </div>
+    
+    <div class="bill-info">
+        <div>
+            <strong>Patient Name:</strong> {{ content.patient_name | default('Rajesh Kumar') }}<br>
+            <strong>Date:</strong> {{ content.date | default('01-Nov-2024') }}
+        </div>
+        <div>
+            <strong>Bill No:</strong> CMC/2024/08321
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>DESCRIPTION</th>
+                <th>AMOUNT</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in content.line_items %}
+            <tr>
+                <td>{{ item.description }}</td>
+                <td>{{ item.amount }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td>Medical Services</td>
+                <td>{{ content.total | default(1000) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <div class="totals-row bold">
+            <span>Total Amount:</span>
+            <span>{{ content.total | default(1000) }}</span>
+        </div>
+    </div>
+</body>
+</html>

@@ -27,7 +27,7 @@ Generated: 2026-05-02T17:00:39.948488+00:00
   "decision": null,
   "approved_amount": null,
   "confidence": 0.9354595984421673,
-  "member_message": "We could not read the file 'blurry_bill.jpg' (PHARMACY_BILL). Please re-upload a clearer photo or scan of this document so we can process your claim.",
+  "member_message": "We could not read the file 'blurry_bill.jpeg' (PHARMACY_BILL). Please re-upload a clearer photo or scan of this document so we can process your claim.",
   "rejection_reasons": [],
   "degraded_components": []
 }

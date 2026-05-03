@@ -11,15 +11,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from claims_pipeline.config import POLICY_PATH, TEST_CASES_PATH
 from claims_pipeline.pipeline.orchestrator import run_pipeline_sync
 from claims_pipeline.policy import PolicyService, load_policy_file
 
 
 def main() -> None:
-    policy_path = ROOT / "policy_terms.json"
-    terms = load_policy_file(policy_path)
+    terms = load_policy_file(POLICY_PATH)
     svc = PolicyService(terms)
-    with open(ROOT / "test_cases.json", encoding="utf-8") as f:
+    with open(TEST_CASES_PATH, encoding="utf-8") as f:
         bundle = json.load(f)
 
     lines: list[str] = []

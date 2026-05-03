@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Optional: run variant images through Gemini extraction when fixtures/docs populated."""
+"""Optional: run variant images through Gemini extraction when fixtures/TC* populated."""
 
 from __future__ import annotations
 
@@ -11,15 +11,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> None:
-    fix = ROOT / "fixtures" / "docs"
+    fix = ROOT / "fixtures"
+    legacy_docs = fix / "docs"
+    has_fixtures = (fix.is_dir() and any(
+        p.is_dir() and p.name.startswith("TC") and any(p.iterdir())
+        for p in fix.iterdir()
+    )) or (legacy_docs.is_dir() and any(legacy_docs.iterdir()))
     out = ROOT / "docs" / "ROBUSTNESS_REPORT.md"
     lines = [
         f"# ROBUSTNESS_REPORT\n\nGenerated: {datetime.now(timezone.utc).isoformat()}\n\n",
     ]
-    if not fix.exists() or not os.environ.get("GEMINI_API_KEY"):
+    if not has_fixtures or not os.environ.get("GEMINI_API_KEY"):
         lines.append(
-            "**Status:** skipped — generate `fixtures/docs` (see `gen_sample_docs.py`) "
-            "and set `GEMINI_API_KEY` to run 48 variant extractions.\n"
+            "**Status:** skipped — generate `fixtures/TC*/` (see `gen_sample_docs.py`) "
+            "and set `GEMINI_API_KEY` to run variant extractions.\n"
         )
     else:
         lines.append("**Status:** placeholder — wire image paths → `GeminiProvider` batch.\n")

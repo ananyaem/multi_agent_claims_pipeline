@@ -5,8 +5,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 ROOT = Path(__file__).resolve().parents[2]
-POLICY_PATH = ROOT / "policy_terms.json"
-TEST_CASES_PATH = ROOT / "test_cases.json"
+POLICY_PATH = ROOT / "assignment" / "policy_terms.json"
+TEST_CASES_PATH = ROOT / "assignment" / "test_cases.json"
 
 
 class Settings(BaseSettings):

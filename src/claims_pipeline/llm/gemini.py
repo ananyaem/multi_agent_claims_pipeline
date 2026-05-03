@@ -12,6 +12,33 @@ from claims_pipeline.llm.base import LLMProvider
 
 logger = logging.getLogger(__name__)
 
+_ALLOWED_FALLBACK = "OTHERS"
+
+
+def _normalize_doc_label(raw: str | None, allowed: frozenset[str]) -> str | None:
+    if not raw or not isinstance(raw, str):
+        return None
+    u = raw.strip().upper().replace(" ", "_").replace("-", "_")
+    if u in allowed:
+        return u
+    aliases = {
+        "RX": "PRESCRIPTION",
+        "PRESCRIPTION_PAD": "PRESCRIPTION",
+        "CONSULTATION_PRESCRIPTION": "PRESCRIPTION",
+        "INVOICE": "HOSPITAL_BILL",
+        "BILL": "HOSPITAL_BILL",
+        "ITEMIZED_BILL": "HOSPITAL_BILL",
+        "LAB": "LAB_REPORT",
+        "PATHOLOGY": "LAB_REPORT",
+        "PHARMACY_INVOICE": "PHARMACY_BILL",
+    }
+    alt = aliases.get(u)
+    if alt and alt in allowed:
+        return alt
+    if _ALLOWED_FALLBACK in allowed:
+        return _ALLOWED_FALLBACK
+    return None
+
 
 class GeminiProvider(LLMProvider):
     """Google Gemini structured extraction (vision optional)."""
@@ -71,3 +98,73 @@ class GeminiProvider(LLMProvider):
         except Exception as e:
             logger.exception("Gemini extract failed: %s", e)
             return {}, 0.35
+
+    def classify_document_type(
+        self,
+        claim_id: str,
+        file_id: str,
+        image_bytes: bytes,
+        mime_type: str | None,
+        allowed_labels: list[str],
+    ) -> tuple[str | None, float]:
+        allowed = frozenset(x.upper() for x in allowed_labels if x)
+        if not allowed:
+            return None, 0.0
+        self._ensure_client()
+        lines = "\n".join(f"- {x}" for x in sorted(allowed))
+        prompt = (
+            "You classify a photo of a medical/financial document from an Indian healthcare context.\n"
+            "Pick exactly ONE label from the list below — copy the token exactly (uppercase, underscores).\n\n"
+            f"{lines}\n\n"
+            "Guidance:\n"
+            "- PRESCRIPTION: doctor Rx pad, diagnosis, medicines; clinic prescription layout.\n"
+            "- HOSPITAL_BILL: printed itemized bill with line amounts and total from hospital/clinic.\n"
+            "- PHARMACY_BILL: pharmacy/chemist receipt.\n"
+            "- LAB_REPORT: pathology report with test names and results.\n"
+            "- DISCHARGE_SUMMARY: discharge document from inpatient stay.\n"
+            "- DIAGNOSTIC_REPORT: imaging/report narrative (CT/MRI/USG summary).\n"
+            "- DENTAL_REPORT: dental chart or dental-specific clinical report.\n"
+            "- OTHERS: none of the above or unreadable/photo of something else.\n\n"
+            "Return ONLY valid JSON: {\"document_type\":\"<LABEL>\",\"confidence\":0.95}\n"
+            "confidence must be between 0 and 1.\n"
+        )
+        contents: list[Any] = [prompt]
+        contents.append(
+            types.Part.from_bytes(data=image_bytes, mime_type=mime_type or "image/jpeg")
+        )
+        t0 = time.perf_counter()
+        try:
+            resp = self._client.models.generate_content(
+                model=self.model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                ),
+            )
+            latency_ms = int((time.perf_counter() - t0) * 1000)
+            text = resp.text or "{}"
+            payload = json.loads(text)
+            raw_label = payload.get("document_type") or payload.get("label")
+            conf = float(payload.get("confidence", 0.85))
+            conf = max(0.0, min(1.0, conf))
+            label = _normalize_doc_label(str(raw_label) if raw_label is not None else None, allowed)
+            if label is None:
+                logger.warning(
+                    "Gemini classify bad label claim=%s file=%s raw=%r ms=%s",
+                    claim_id,
+                    file_id,
+                    raw_label,
+                    latency_ms,
+                )
+                return None, 0.4
+            logger.info(
+                "Gemini classify ok claim=%s file=%s label=%s ms=%s",
+                claim_id,
+                file_id,
+                label,
+                latency_ms,
+            )
+            return label, conf
+        except Exception as e:
+            logger.exception("Gemini classify failed: %s", e)
+            return None, 0.35

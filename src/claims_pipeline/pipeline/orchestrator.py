@@ -6,7 +6,7 @@ from typing import Any
 
 from claims_pipeline.pipeline.agents import adjudication, cross_validation, doc_verification, extraction, fraud, intake
 from claims_pipeline.pipeline.agents import policy_engine as policy_engine_mod
-from claims_pipeline.pipeline.agents import readability
+from claims_pipeline.pipeline.agents import readability, visual_classification
 from claims_pipeline.pipeline.confidence import aggregate_claim_confidence
 from claims_pipeline.pipeline.context import PipelineContext
 from claims_pipeline.pipeline.tracer import TraceCollector
@@ -38,6 +38,17 @@ async def run_pipeline_async(
 
     def halt() -> bool:
         return ctx.halted_reason is not None
+
+    visual_classification.run_visual_document_classification(ctx, llm_provider)
+    if trace:
+        trace.emit_step(
+            "VisualDocumentClassificationAgent",
+            "HALT" if halt() else "OK",
+            [ctx.member_message or ""],
+        )
+    if halt():
+        _finalize_confidence(ctx)
+        return ctx
 
     intake.run_intake(ctx, policy_svc)
     if trace:

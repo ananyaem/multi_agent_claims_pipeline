@@ -117,6 +117,10 @@ def test_tc010_network_discount(policy_terms, policy_svc):
     ctx = run_pipeline_sync(c["input"], policy_terms, 1, policy_svc, llm_provider=None)
     assert ctx.decision == "APPROVED"
     assert ctx.approved_amount == 3240
+    msg = ctx.member_message or ""
+    assert "₹3,240.00" in msg or "3240" in msg.replace(",", "")
+    assert "network hospital" in msg.lower() and "20%" in msg and "10%" in msg
+    assert "4,500.00" in msg or "4500" in msg.replace(",", "")
 
 
 def test_tc011_degraded(policy_terms, policy_svc):

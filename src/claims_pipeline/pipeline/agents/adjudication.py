@@ -152,10 +152,24 @@ def run_adjudication(ctx: PipelineContext) -> None:
         if ctx.policy_findings:
             ctx.member_message = ctx.member_message + " " + " ".join(ctx.policy_findings)
     else:
-        ctx.member_message = (
-            f"Claim {ctx.decision.lower()}. Approved amount ₹{ctx.approved_amount:,.2f}. "
-            + (" ".join(ctx.policy_findings) if ctx.policy_findings else "")
-        )
+        # Full approval: explain network discount then co-pay when present (TC010)
+        parts: list[str] = [
+            f"Claim approved. Approved amount ₹{ctx.approved_amount:,.2f}.",
+            f"Eligible charges totaled ₹{eligible_amount:,.2f}.",
+        ]
+        if ctx.network_hospital and net_disc_pct > 0:
+            parts.append(
+                f"As a network hospital, {net_disc_pct:.0f}% discount is applied first "
+                f"(₹{after_network:,.2f} after discount)."
+            )
+        if copay_pct > 0:
+            parts.append(
+                f"Your plan's {copay_pct:.0f}% co-pay is then applied to that amount; "
+                "the figure above is the insurer's payable share."
+            )
+        ctx.member_message = " ".join(parts)
+        if ctx.policy_findings:
+            ctx.member_message = ctx.member_message + " " + " ".join(ctx.policy_findings)
     ctx.add_step_confidence(0.94, step="AdjudicationAgent")
 
     if ctx.confidence is None:

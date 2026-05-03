@@ -1,6 +1,15 @@
 # Multi-agent claims pipeline
 
-Plum-style **health insurance claims** assignment: staged pipeline, **policy from [`policy_terms.json`](policy_terms.json)**, **official cases in [`test_cases.json`](test_cases.json)**, dual trace (ops + LLM), Redis-backed workers, Streamlit UI.
+Plum-style **health insurance claims** assignment: staged pipeline, **policy from [`assignment/policy_terms.json`](assignment/policy_terms.json)**, **official cases in [`assignment/test_cases.json`](assignment/test_cases.json)**, dual trace (ops + LLM), Redis-backed workers, Streamlit UI.
+
+## Project highlights (from git history)
+
+- **Foundation** — FastAPI orchestrator, Redis queues and worker heartbeats (`redis_support`), Gemini bridge, Docker stack, architecture and component docs.
+- **API & UI** — Multipart `/claims/submit`, enriched `/health` (queues, limits), Streamlit upload flow and Plum theme aligned with API limits.
+- **Fixtures & docs** — Expanded document generation, templates, fixture wiring; assignment materials under `assignment/`; sample claim images via prompts + manual web generation (12/12 cases).
+- **Pipeline & adjudication** — Visual document classification before intake; readability and extraction audit trail; medical waiting-period agent, JSON retries, partial approvals, fraud/same-day history from DB with eval seeds.
+- **Test cases** — End-to-end fixes through official cases (TC001–TC010), including network discount messaging and eval runs.
+- **Streamlit** — Full-screen Plum layout, reusable components, package split under `claims_pipeline.ui`, ongoing UX polish.
 
 ## Quickstart
 
@@ -43,6 +52,20 @@ docker compose up -d
 
 For **local iteration** with hot reload, keep using Redis only (`docker compose up -d redis`) and run API/workers/UI on the host as above.
 
+## UI screenshots
+
+### Submit wizard
+
+![Submit claim flow](docs/img/submit.png)
+
+### Claims list
+
+![Claims view](docs/img/claims.png)
+
+### Policy / trace
+
+![Policy view](docs/img/policy.png)
+
 ## Tests & eval
 
 ```bash
@@ -57,10 +80,11 @@ python scripts/run_robustness_eval.py
 ## Layout
 
 - `Dockerfile`, `docker-compose.yml` — one image; Compose runs Redis and optionally API + workers + Streamlit.
+- `assignment/` — [`assignment.md`](assignment/assignment.md), `policy_terms.json`, `test_cases.json`, sample-doc guide.
 - `src/claims_pipeline/` — FastAPI (`main.py`), orchestrator, agents, DB, Gemini + Redis LLM bridge, workers, Streamlit UI (`ui/app.py`).
 - `tests/` — pytest suites.
 - `scripts/` — eval and fixture helpers.
-- `docs/` — architecture, contracts, eval reports, demo checklist.
+- `docs/` — architecture, contracts, eval reports, demo checklist; [`docs/img/`](docs/img/) — UI screenshots for README and demos.
 
 ## Sample document images (fixtures)
 

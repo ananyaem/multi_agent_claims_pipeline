@@ -14,7 +14,7 @@ Multi-stage **claims pipeline**: **LLM for perception** (document extraction), *
 | **Orchestrator** | Phase 1 gates → Phase 2 policy + fraud (async gather) → adjudication |
 | **Agents** | Intake, document verification, readability, extraction, cross-validation, policy engine, fraud, adjudication |
 | **Confidence** | Harmonic mean over step confidences + penalty for degraded agents (F1-style) |
-| **Streamlit** (`src/claims_pipeline/streamlit_app.py`) | Submit, claims list, detail, fixture eval trigger, analytics table |
+| **Streamlit** (`src/claims_pipeline/ui/app.py`) | Submit, claims list, detail, fixture eval trigger, analytics table |
 
 ## Data flow
 

@@ -22,7 +22,7 @@ python -m claims_pipeline.workers.llm_worker
 python -m claims_pipeline.workers.claim_worker
 
 # Terminal 4 — UI
-streamlit run src/claims_pipeline/streamlit_app.py
+streamlit run src/claims_pipeline/ui/app.py
 ```
 
 ### Docker (full stack)
@@ -57,7 +57,7 @@ python scripts/run_robustness_eval.py
 ## Layout
 
 - `Dockerfile`, `docker-compose.yml` — one image; Compose runs Redis and optionally API + workers + Streamlit.
-- `src/claims_pipeline/` — FastAPI (`main.py`), orchestrator, agents, DB, Gemini + Redis LLM bridge, workers, Streamlit (`streamlit_app.py`).
+- `src/claims_pipeline/` — FastAPI (`main.py`), orchestrator, agents, DB, Gemini + Redis LLM bridge, workers, Streamlit UI (`ui/app.py`).
 - `tests/` — pytest suites.
 - `scripts/` — eval and fixture helpers.
 - `docs/` — architecture, contracts, eval reports, demo checklist.

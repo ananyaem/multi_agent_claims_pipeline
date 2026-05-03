@@ -284,7 +284,7 @@ overall_confidence = n / sum(1 / max(c_i, eps) for c_i in step_confidences)
 src/
   claims_pipeline/         # one installable package (`pip install -e .`)
     main.py                # FastAPI app + routes
-    streamlit_app.py       # Streamlit (httpx → API)
+    ui/app.py              # Streamlit (httpx → API)
     db.py
     schemas.py
     policy.py

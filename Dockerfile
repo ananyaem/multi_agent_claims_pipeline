@@ -7,6 +7,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
 COPY requirements.txt pyproject.toml ./
+COPY .streamlit ./.streamlit
 COPY src ./src
 COPY policy_terms.json test_cases.json ./
 

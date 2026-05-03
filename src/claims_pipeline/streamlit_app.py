@@ -16,6 +16,25 @@ INTERNAL_API = os.environ.get("CLAIMS_API_URL", "http://127.0.0.1:8000").rstrip(
 _pub = (os.environ.get("PUBLIC_CLAIMS_API_URL") or "").strip()
 PUBLIC_DEFAULT = (_pub if _pub else INTERNAL_API).rstrip("/")
 
+# Streamlit UI theme (Plum-inspired). Google Fonts + Chromatica (sidebar) via CDNFonts stylesheet.
+_GOOGLE_FONTS_URL = (
+    "https://fonts.googleapis.com/css2"
+    "?family=Fraunces:wght@500;600;700"
+    "&family=Plus+Jakarta+Sans:wght@400;600"
+    "&family=Syne:wght@700;800"
+    "&display=swap"
+)
+_CHROMATICA_CSS_URL = "https://fonts.cdnfonts.com/css/chromatica"
+_PLUM = {
+    "brand": "#ff4052",
+    "sidebar_bg": "#3a0e2b",
+    "ink": "#1d1d1f",
+    "link": "#5f3a8a",
+    "link_v": "#4a2d6b",
+    "link_h": "#7b4db3",
+}
+
+
 def browser_api_base() -> str:
     """Host/port the member's browser can reach (CSV links, etc.)."""
     return st.session_state.get("api_base", PUBLIC_DEFAULT).rstrip("/")
@@ -23,6 +42,113 @@ def browser_api_base() -> str:
 
 def http_client(timeout: float = 120.0) -> httpx.Client:
     return httpx.Client(base_url=INTERNAL_API, timeout=timeout)
+
+
+def _plum_ui_css() -> str:
+    """Single stylesheet: font imports + Plum sidebar / main content rules."""
+    p = _PLUM
+    return f"""<style>
+@import url('{_GOOGLE_FONTS_URL}');
+@import url('{_CHROMATICA_CSS_URL}');
+
+html, body, .stApp {{
+    font-family: "Plus Jakarta Sans", sans-serif;
+}}
+
+/* Chromatica on sidebar + descendants — !important beats Streamlit Emotion (.st-emotion-cache-*) */
+section[data-testid="stSidebar"],
+[data-testid="stSidebar"],
+[data-testid="stSidebarContent"] {{
+    font-family: "Chromatica", "Plus Jakarta Sans", sans-serif !important;
+}}
+
+[data-testid="stSidebar"] *:not(.sidebar-brand),
+[data-testid="stSidebarContent"] *:not(.sidebar-brand) {{
+    font-family: "Chromatica", "Plus Jakarta Sans", sans-serif !important;
+}}
+
+section[data-testid="stSidebar"],
+[data-testid="stSidebarContent"] {{
+    background-color: {p["sidebar_bg"]} !important;
+}}
+
+[data-testid="stSidebar"] .block-container {{
+    color: #ffffff !important;
+}}
+
+[data-testid="stSidebar"] p:not(.sidebar-brand),
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] [data-baseweb="radio"] label,
+[data-testid="stSidebar"] [role="radiogroup"] label {{
+    color: #ffffff !important;
+}}
+
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] h4,
+[data-testid="stSidebar"] h5,
+[data-testid="stSidebar"] h6 {{
+    color: #ffffff !important;
+}}
+
+[data-testid="stSidebar"] input,
+[data-testid="stSidebar"] textarea {{
+    background-color: rgba(255, 255, 255, 0.18) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.45) !important;
+    caret-color: #ffffff;
+}}
+
+[data-testid="stSidebar"] input::placeholder {{
+    color: rgba(255, 255, 255, 0.75);
+}}
+
+[data-testid="stSidebar"] svg {{
+    fill: #ffffff !important;
+}}
+
+[data-testid="stSidebar"] p.sidebar-brand {{
+    font-family: "Syne", sans-serif !important;
+    font-weight: 800 !important;
+    font-size: clamp(1.15rem, 2.5vw, 1.45rem);
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    color: {p["brand"]} !important;
+    margin: 0 0 1rem 0 !important;
+    padding: 0 !important;
+    text-align: left;
+}}
+
+h1, h2, h3, h4, h5, h6 {{
+    font-family: "Fraunces", Georgia, serif !important;
+    color: {p["ink"]} !important;
+}}
+
+.stApp a:link {{ color: {p["link"]}; }}
+.stApp a:visited {{ color: {p["link_v"]}; }}
+.stApp a:hover {{ color: {p["link_h"]}; }}
+
+div[data-testid="stButton"] button {{
+    border-radius: 8px;
+    font-weight: 600;
+    border: none;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}}
+
+/* Hide sidebar expand/collapse control (Material keyboard_double_arrow_* icon flicker) */
+[data-testid="stSidebarCollapseButton"],
+[data-testid="collapsedControl"],
+button[aria-label="Close sidebar"],
+button[aria-label="Open sidebar"] {{
+    display: none !important;
+}}
+</style>"""
+
+
+def _inject_plum_styles() -> None:
+    st.markdown(_plum_ui_css(), unsafe_allow_html=True)
 
 
 def page_health():
@@ -339,10 +465,18 @@ def page_policy():
 
 
 def main():
-    st.set_page_config(page_title="Claims pipeline", layout="wide")
-    st.title("Claims pipeline")
+    st.set_page_config(
+        page_title="Claims pipeline",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+    _inject_plum_styles()
 
     with st.sidebar:
+        st.markdown(
+            '<p class="sidebar-brand">Claims Pipeline</p>',
+            unsafe_allow_html=True,
+        )
         st.text_input(
             "API URL (browser links)",
             key="api_base",

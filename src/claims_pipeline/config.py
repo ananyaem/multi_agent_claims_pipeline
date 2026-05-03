@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "assignment" / "policy_terms.json"
 TEST_CASES_PATH = ROOT / "assignment" / "test_cases.json"
+EVAL_DB_SEEDS_PATH = ROOT / "fixtures" / "eval_db_seeds.json"
 
 
 class Settings(BaseSettings):
@@ -25,6 +26,12 @@ class Settings(BaseSettings):
     # Directory for claim uploads (must be shared by api + claim-worker in Docker)
     upload_dir: str = ""
     max_upload_bytes: int = 20 * 1024 * 1024  # 20 MiB per file
+
+    # Laplacian variance below this flags severe blur (computed from pixels, not UI).
+    readability_hard_laplacian_floor: float = 35.0
+
+    # Required policy documents must exceed this confidence and have non-empty extracted fields.
+    extraction_usable_confidence_floor: float = 0.45
 
 
 @lru_cache

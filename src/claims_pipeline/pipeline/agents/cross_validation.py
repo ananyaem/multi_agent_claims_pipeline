@@ -25,7 +25,7 @@ def run_cross_validation(ctx: PipelineContext) -> None:
             names.append((fid, n))
 
     if len(names) < 2:
-        ctx.add_step_confidence(0.93)
+        ctx.add_step_confidence(0.93, step="CrossValidationAgent")
         return
 
     normalized = [n[1].strip().lower() for n in names]
@@ -38,7 +38,7 @@ def run_cross_validation(ctx: PipelineContext) -> None:
             "Please upload documents that all relate to the same patient and match your membership."
         )
         ctx.halt_details = {"names": names}
-        ctx.add_step_confidence(0.92)
+        ctx.add_step_confidence(0.92, step="CrossValidationAgent")
         return
 
-    ctx.add_step_confidence(0.95)
+    ctx.add_step_confidence(0.95, step="CrossValidationAgent")

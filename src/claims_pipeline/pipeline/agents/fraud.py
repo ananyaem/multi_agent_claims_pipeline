@@ -11,9 +11,10 @@ def run_fraud(ctx: PipelineContext) -> None:
     if ctx.simulate_component_failure:
         ctx.degraded_components.append("FraudAgent")
         ctx.fraud_signals.append("FraudAgent skipped due to simulated component failure.")
-        ctx.add_step_confidence(0.5)
+        ctx.add_step_confidence(0.5, step="FraudAgent")
         return
 
+    # Populated server-side from DB by treatment_date + member_id (see claims_history_db).
     hist = ctx.submission.get("claims_history") or []
     tdate = ctx.submission.get("treatment_date", "")[:10]
     same_day = [c for c in hist if str(c.get("date", ""))[:10] == tdate]
@@ -23,8 +24,8 @@ def run_fraud(ctx: PipelineContext) -> None:
             f"Same-day claim burst: {len(same_day)} prior claim(s) on {tdate} before this submission."
         )
         ctx.fraud_score = 0.85
-        ctx.add_step_confidence(0.88)
+        ctx.add_step_confidence(0.88, step="FraudAgent")
         return
 
     ctx.fraud_score = 0.1
-    ctx.add_step_confidence(0.91)
+    ctx.add_step_confidence(0.91, step="FraudAgent")

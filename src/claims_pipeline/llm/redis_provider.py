@@ -51,3 +51,63 @@ class RedisLLMProvider(LLMProvider):
         if not msg.get("ok"):
             raise RuntimeError(msg.get("error", "LLM failure"))
         return msg.get("data") or {}, float(msg.get("confidence", 0.5))
+
+    def classify_document_type(
+        self,
+        claim_id: str,
+        file_id: str,
+        image_bytes: bytes,
+        mime_type: str | None,
+        allowed_labels: list[str],
+    ) -> tuple[str | None, float]:
+        req_id = str(uuid.uuid4())
+        import base64
+
+        payload = {
+            "operation": "classify",
+            "req_id": req_id,
+            "claim_id": claim_id,
+            "file_id": file_id,
+            "mime_type": mime_type,
+            "allowed_labels": allowed_labels,
+            "image_b64": base64.standard_b64encode(image_bytes).decode("ascii"),
+        }
+        self.r.rpush(self.settings.llm_queue, json.dumps(payload))
+        key = f"llm:result:{req_id}"
+        raw = self.r.blpop(key, timeout=self.settings.llm_request_timeout_sec)
+        if raw is None:
+            raise TimeoutError("LLM worker response timeout")
+        _, body = raw
+        msg = json.loads(body.decode("utf-8"))
+        if not msg.get("ok"):
+            raise RuntimeError(msg.get("error", "LLM failure"))
+        dt = msg.get("document_type")
+        if dt is None:
+            return None, float(msg.get("confidence", 0.35))
+        return str(dt).upper().strip(), float(msg.get("confidence", 0.85))
+
+    def assess_waiting_period_clinical(
+        self,
+        claim_id: str,
+        clinical_bundle: str,
+        condition_catalog: list[dict[str, Any]],
+    ) -> tuple[dict[str, Any], float]:
+        req_id = str(uuid.uuid4())
+        payload = {
+            "operation": "waiting_period",
+            "req_id": req_id,
+            "claim_id": claim_id,
+            "clinical_bundle": clinical_bundle,
+            "condition_catalog": condition_catalog,
+        }
+        self.r.rpush(self.settings.llm_queue, json.dumps(payload))
+        key = f"llm:result:{req_id}"
+        raw = self.r.blpop(key, timeout=self.settings.llm_request_timeout_sec)
+        if raw is None:
+            raise TimeoutError("LLM worker response timeout")
+        _, body = raw
+        msg = json.loads(body.decode("utf-8"))
+        if not msg.get("ok"):
+            raise RuntimeError(msg.get("error", "LLM failure"))
+        data = msg.get("data") or {}
+        return data, float(msg.get("confidence", 0.75))

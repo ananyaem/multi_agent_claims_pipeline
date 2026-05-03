@@ -4,18 +4,44 @@ import asyncio
 import uuid
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from claims_pipeline.claims_history_db import enrich_submission_claims_history_from_db
 from claims_pipeline.pipeline.agents import adjudication, cross_validation, doc_verification, extraction, fraud, intake
 from claims_pipeline.pipeline.agents import policy_engine as policy_engine_mod
-from claims_pipeline.pipeline.agents import readability
+from claims_pipeline.pipeline.agents import readability, visual_classification, waiting_period_medical
 from claims_pipeline.pipeline.confidence import aggregate_claim_confidence
 from claims_pipeline.pipeline.context import PipelineContext
 from claims_pipeline.pipeline.tracer import TraceCollector
 from claims_pipeline.policy import PolicyService
 
 
+def build_pipeline_details(ctx: PipelineContext) -> dict[str, Any]:
+    """Rich audit trail: per-document extraction + how overall confidence was computed."""
+    return {
+        "confidence": ctx.confidence_breakdown or {},
+        "waiting_period_medical": ctx.waiting_period_medical,
+        "documents": [
+            {
+                "file_id": e.get("file_id"),
+                "file_name": e.get("file_name"),
+                "document_type": e.get("actual_type"),
+                "extracted_fields": e.get("data"),
+                "extraction_confidence": e.get("extraction_confidence"),
+                "extraction_meta": e.get("extraction_meta"),
+                "readability_metrics": e.get("readability_metrics"),
+            }
+            for e in ctx.extracted_documents
+        ],
+    }
+
+
 def _finalize_confidence(ctx: PipelineContext) -> None:
+    overall, bd = aggregate_claim_confidence(ctx.step_confidence_records, ctx.degraded_components)
     if ctx.confidence is None:
-        ctx.confidence = aggregate_claim_confidence(ctx.step_confidences, ctx.degraded_components)
+        ctx.confidence = overall
+    ctx.confidence_breakdown = bd
+    ctx.pipeline_details = build_pipeline_details(ctx)
 
 
 async def run_pipeline_async(
@@ -26,7 +52,9 @@ async def run_pipeline_async(
     llm_provider: Any | None = None,
     trace: TraceCollector | None = None,
     claim_id: str | None = None,
+    db: Session | None = None,
 ) -> PipelineContext:
+    enrich_submission_claims_history_from_db(db, submission)
     cid = claim_id or submission.get("claim_id") or str(uuid.uuid4())
     ctx = PipelineContext(
         claim_id=cid,
@@ -38,6 +66,17 @@ async def run_pipeline_async(
 
     def halt() -> bool:
         return ctx.halted_reason is not None
+
+    visual_classification.run_visual_document_classification(ctx, llm_provider)
+    if trace:
+        trace.emit_step(
+            "VisualDocumentClassificationAgent",
+            "HALT" if halt() else "OK",
+            [ctx.member_message or ""],
+        )
+    if halt():
+        _finalize_confidence(ctx)
+        return ctx
 
     intake.run_intake(ctx, policy_svc)
     if trace:
@@ -57,6 +96,17 @@ async def run_pipeline_async(
         _finalize_confidence(ctx)
         return ctx
 
+    extraction.run_extraction(ctx, llm_provider)
+    if trace:
+        trace.emit_step(
+            "ExtractionAgent",
+            "HALT" if halt() else "OK",
+            [ctx.member_message or "", f"{len(ctx.extracted_documents)} docs"],
+        )
+    if halt():
+        _finalize_confidence(ctx)
+        return ctx
+
     readability.run_readability(ctx)
     if trace:
         trace.emit_step(
@@ -68,10 +118,6 @@ async def run_pipeline_async(
         _finalize_confidence(ctx)
         return ctx
 
-    extraction.run_extraction(ctx, llm_provider)
-    if trace:
-        trace.emit_step("ExtractionAgent", "OK", [f"{len(ctx.extracted_documents)} docs"])
-
     cross_validation.run_cross_validation(ctx)
     if trace:
         trace.emit_step(
@@ -82,6 +128,15 @@ async def run_pipeline_async(
     if halt():
         _finalize_confidence(ctx)
         return ctx
+
+    await asyncio.to_thread(waiting_period_medical.run_waiting_period_medical_review, ctx, llm_provider)
+    if trace:
+        notes = (ctx.waiting_period_medical or {}).get("review_notes") or ""
+        trace.emit_step(
+            "WaitingPeriodMedicalAgent",
+            "OK",
+            [notes, str((ctx.waiting_period_medical or {}).get("matches") or [])],
+        )
 
     await asyncio.gather(
         asyncio.to_thread(policy_engine_mod.run_policy_engine, ctx),
@@ -116,6 +171,7 @@ def run_pipeline_sync(
     llm_provider: Any | None = None,
     trace: TraceCollector | None = None,
     claim_id: str | None = None,
+    db: Session | None = None,
 ) -> PipelineContext:
     return asyncio.run(
         run_pipeline_async(
@@ -126,5 +182,6 @@ def run_pipeline_sync(
             llm_provider,
             trace,
             claim_id=claim_id,
+            db=db,
         )
     )

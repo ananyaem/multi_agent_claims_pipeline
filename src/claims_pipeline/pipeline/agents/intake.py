@@ -20,4 +20,4 @@ def run_intake(ctx: PipelineContext, policy: PolicyService) -> None:
         return
 
     ctx.category_key = policy.category_key(ctx.submission["claim_category"])
-    ctx.add_step_confidence(0.99)
+    ctx.add_step_confidence(0.99, step="IntakeAgent")

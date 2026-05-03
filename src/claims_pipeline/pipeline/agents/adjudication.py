@@ -27,9 +27,11 @@ def run_adjudication(ctx: PipelineContext) -> None:
         }
         if not ctx.member_message:
             ctx.member_message = "Claim rejected based on policy rules."
-        ctx.add_step_confidence(0.93)
+        ctx.add_step_confidence(0.93, step="AdjudicationAgent")
         if ctx.confidence is None:
-            ctx.confidence = aggregate_claim_confidence(ctx.step_confidences, ctx.degraded_components)
+            overall, bd = aggregate_claim_confidence(ctx.step_confidence_records, ctx.degraded_components)
+            ctx.confidence = overall
+            ctx.confidence_breakdown = bd
         return
 
     # Fraud routing (TC009)
@@ -43,9 +45,11 @@ def run_adjudication(ctx: PipelineContext) -> None:
             + " ".join(ctx.fraud_signals)
         )
         ctx.financial_breakdown = {"fraud_signals": ctx.fraud_signals, "fraud_score": ctx.fraud_score}
-        ctx.add_step_confidence(0.87)
+        ctx.add_step_confidence(0.87, step="AdjudicationAgent")
         if ctx.confidence is None:
-            ctx.confidence = aggregate_claim_confidence(ctx.step_confidences, ctx.degraded_components)
+            overall, bd = aggregate_claim_confidence(ctx.step_confidence_records, ctx.degraded_components)
+            ctx.confidence = overall
+            ctx.confidence_breakdown = bd
         return
 
     cat_upper = (ctx.submission.get("claim_category") or "").upper()
@@ -63,9 +67,11 @@ def run_adjudication(ctx: PipelineContext) -> None:
             "route": "manual_review",
             "reason": "OTHERS_CATEGORY" if cat_upper == "OTHERS" else "OTHERS_DOCUMENT_TYPE",
         }
-        ctx.add_step_confidence(0.88)
+        ctx.add_step_confidence(0.88, step="AdjudicationAgent")
         if ctx.confidence is None:
-            ctx.confidence = aggregate_claim_confidence(ctx.step_confidences, ctx.degraded_components)
+            overall, bd = aggregate_claim_confidence(ctx.step_confidence_records, ctx.degraded_components)
+            ctx.confidence = overall
+            ctx.confidence_breakdown = bd
         return
 
     line_items: list[dict[str, Any]] = []
@@ -82,13 +88,17 @@ def run_adjudication(ctx: PipelineContext) -> None:
     excluded_labels = [x.lower() for x in opd.get("excluded_procedures", [])]
     eligible_amount = 0.0
     rejected_lines: list[str] = []
+    approved_line_labels: list[str] = []
     for li in line_items:
         desc = li.get("description", "")
         amt = float(li.get("amount", 0))
         if cat == "dental" and any(ex in desc.lower() for ex in excluded_labels):
-            rejected_lines.append(f"{desc}: excluded cosmetic/aesthetic procedure")
+            rejected_lines.append(
+                f"{desc} (₹{amt:,.2f}) — excluded as cosmetic/aesthetic under your policy"
+            )
             continue
         eligible_amount += amt
+        approved_line_labels.append(f"{desc} (₹{amt:,.2f})")
 
     if eligible_amount <= 0 and line_items:
         eligible_amount = _sum_lines(line_items)
@@ -123,13 +133,46 @@ def run_adjudication(ctx: PipelineContext) -> None:
         "sub_limit": sub_limit,
         "payable": ctx.approved_amount,
         "rejected_lines": rejected_lines,
+        "approved_line_items": approved_line_labels,
         "per_claim_limit": coverage.get("per_claim_limit"),
     }
-    ctx.member_message = (
-        f"Claim {ctx.decision.lower()}. Approved amount ₹{ctx.approved_amount:,.2f}. "
-        + (" ".join(ctx.policy_findings) if ctx.policy_findings else "")
-    )
-    ctx.add_step_confidence(0.94)
+    if ctx.decision == "PARTIAL" and (approved_line_labels or rejected_lines):
+        detail_parts = [
+            f"Claim partial. Approved amount ₹{ctx.approved_amount:,.2f}.",
+            (
+                "Covered in this payment: "
+                + "; ".join(approved_line_labels)
+                + "."
+                if approved_line_labels
+                else ""
+            ),
+            ("Not covered: " + "; ".join(rejected_lines) + "." if rejected_lines else ""),
+        ]
+        ctx.member_message = " ".join(p for p in detail_parts if p).strip()
+        if ctx.policy_findings:
+            ctx.member_message = ctx.member_message + " " + " ".join(ctx.policy_findings)
+    else:
+        # Full approval: explain network discount then co-pay when present (TC010)
+        parts: list[str] = [
+            f"Claim approved. Approved amount ₹{ctx.approved_amount:,.2f}.",
+            f"Eligible charges totaled ₹{eligible_amount:,.2f}.",
+        ]
+        if ctx.network_hospital and net_disc_pct > 0:
+            parts.append(
+                f"As a network hospital, {net_disc_pct:.0f}% discount is applied first "
+                f"(₹{after_network:,.2f} after discount)."
+            )
+        if copay_pct > 0:
+            parts.append(
+                f"Your plan's {copay_pct:.0f}% co-pay is then applied to that amount; "
+                "the figure above is the insurer's payable share."
+            )
+        ctx.member_message = " ".join(parts)
+        if ctx.policy_findings:
+            ctx.member_message = ctx.member_message + " " + " ".join(ctx.policy_findings)
+    ctx.add_step_confidence(0.94, step="AdjudicationAgent")
 
     if ctx.confidence is None:
-        ctx.confidence = aggregate_claim_confidence(ctx.step_confidences, ctx.degraded_components)
+        overall, bd = aggregate_claim_confidence(ctx.step_confidence_records, ctx.degraded_components)
+        ctx.confidence = overall
+        ctx.confidence_breakdown = bd

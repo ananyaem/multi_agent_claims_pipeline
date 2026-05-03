@@ -1,0 +1,31 @@
+{
+  "_comment": "Prior Claim rows for eval/pytest when a case needs existing DB history (e.g. same-day fraud). Inserts are idempotent on claim_id.",
+  "case_seeds": {
+    "TC009": [
+      {
+        "claim_id": "CLM_SEED_TC009_1",
+        "member_id": "EMP008",
+        "treatment_date": "2024-10-30",
+        "category": "CONSULTATION",
+        "claimed_amount": 1200,
+        "hospital_name": "City Clinic A"
+      },
+      {
+        "claim_id": "CLM_SEED_TC009_2",
+        "member_id": "EMP008",
+        "treatment_date": "2024-10-30",
+        "category": "CONSULTATION",
+        "claimed_amount": 1800,
+        "hospital_name": "City Clinic B"
+      },
+      {
+        "claim_id": "CLM_SEED_TC009_3",
+        "member_id": "EMP008",
+        "treatment_date": "2024-10-30",
+        "category": "CONSULTATION",
+        "claimed_amount": 2100,
+        "hospital_name": "Wellness Center"
+      }
+    ]
+  }
+}

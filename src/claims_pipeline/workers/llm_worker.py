@@ -40,15 +40,42 @@ def main() -> None:
             img = None
             if payload.get("image_b64"):
                 img = base64.standard_b64decode(payload["image_b64"])
-            data, conf = gemini.extract_document(
-                payload["claim_id"],
-                payload["file_id"],
-                payload["doc_type"],
-                img,
-                payload.get("mime_type"),
-                payload.get("hint") or "",
-            )
-            out = json.dumps({"ok": True, "data": data, "confidence": conf})
+            op = payload.get("operation") or "extract"
+            if op == "classify":
+                allowed = payload.get("allowed_labels") or []
+                if not img:
+                    raise ValueError("classify requires image_b64")
+                label, conf = gemini.classify_document_type(
+                    payload["claim_id"],
+                    payload["file_id"],
+                    img,
+                    payload.get("mime_type"),
+                    allowed,
+                )
+                out = json.dumps(
+                    {
+                        "ok": True,
+                        "document_type": label,
+                        "confidence": conf,
+                    }
+                )
+            elif op == "waiting_period":
+                data, conf = gemini.assess_waiting_period_clinical(
+                    payload["claim_id"],
+                    payload.get("clinical_bundle") or "",
+                    payload.get("condition_catalog") or [],
+                )
+                out = json.dumps({"ok": True, "data": data, "confidence": conf})
+            else:
+                data, conf = gemini.extract_document(
+                    payload["claim_id"],
+                    payload["file_id"],
+                    payload["doc_type"],
+                    img,
+                    payload.get("mime_type"),
+                    payload.get("hint") or "",
+                )
+                out = json.dumps({"ok": True, "data": data, "confidence": conf})
         except Exception as e:
             logger.exception(e)
             out = json.dumps({"ok": False, "error": str(e)})

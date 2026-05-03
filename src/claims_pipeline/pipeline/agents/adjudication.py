@@ -88,13 +88,17 @@ def run_adjudication(ctx: PipelineContext) -> None:
     excluded_labels = [x.lower() for x in opd.get("excluded_procedures", [])]
     eligible_amount = 0.0
     rejected_lines: list[str] = []
+    approved_line_labels: list[str] = []
     for li in line_items:
         desc = li.get("description", "")
         amt = float(li.get("amount", 0))
         if cat == "dental" and any(ex in desc.lower() for ex in excluded_labels):
-            rejected_lines.append(f"{desc}: excluded cosmetic/aesthetic procedure")
+            rejected_lines.append(
+                f"{desc} (₹{amt:,.2f}) — excluded as cosmetic/aesthetic under your policy"
+            )
             continue
         eligible_amount += amt
+        approved_line_labels.append(f"{desc} (₹{amt:,.2f})")
 
     if eligible_amount <= 0 and line_items:
         eligible_amount = _sum_lines(line_items)
@@ -129,12 +133,29 @@ def run_adjudication(ctx: PipelineContext) -> None:
         "sub_limit": sub_limit,
         "payable": ctx.approved_amount,
         "rejected_lines": rejected_lines,
+        "approved_line_items": approved_line_labels,
         "per_claim_limit": coverage.get("per_claim_limit"),
     }
-    ctx.member_message = (
-        f"Claim {ctx.decision.lower()}. Approved amount ₹{ctx.approved_amount:,.2f}. "
-        + (" ".join(ctx.policy_findings) if ctx.policy_findings else "")
-    )
+    if ctx.decision == "PARTIAL" and (approved_line_labels or rejected_lines):
+        detail_parts = [
+            f"Claim partial. Approved amount ₹{ctx.approved_amount:,.2f}.",
+            (
+                "Covered in this payment: "
+                + "; ".join(approved_line_labels)
+                + "."
+                if approved_line_labels
+                else ""
+            ),
+            ("Not covered: " + "; ".join(rejected_lines) + "." if rejected_lines else ""),
+        ]
+        ctx.member_message = " ".join(p for p in detail_parts if p).strip()
+        if ctx.policy_findings:
+            ctx.member_message = ctx.member_message + " " + " ".join(ctx.policy_findings)
+    else:
+        ctx.member_message = (
+            f"Claim {ctx.decision.lower()}. Approved amount ₹{ctx.approved_amount:,.2f}. "
+            + (" ".join(ctx.policy_findings) if ctx.policy_findings else "")
+        )
     ctx.add_step_confidence(0.94, step="AdjudicationAgent")
 
     if ctx.confidence is None:

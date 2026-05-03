@@ -62,6 +62,9 @@ def test_tc006_dental_partial(policy_terms, policy_svc):
     ctx = run_pipeline_sync(c["input"], policy_terms, 1, policy_svc, llm_provider=None)
     assert ctx.decision == "PARTIAL"
     assert ctx.approved_amount == 8000
+    msg = (ctx.member_message or "").lower()
+    assert "root canal" in msg and "teeth whitening" in msg
+    assert "covered" in msg and ("not covered" in msg or "excluded" in msg or "cosmetic" in msg)
 
 
 def test_tc007_pre_auth(policy_terms, policy_svc):

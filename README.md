@@ -70,11 +70,12 @@ For **local iteration** with hot reload, keep using Redis only (`docker compose 
 
 ```bash
 pytest tests/ -v
-python scripts/run_eval.py
+python scripts/run_eval.py                    # writes EVAL_REPORT.md (Gemini; needs GEMINI_API_KEY)
+python scripts/run_eval.py --fixture          # deterministic harness, no LLM (CI-friendly)
 python scripts/run_robustness_eval.py
 ```
 
-- [`docs/EVAL_REPORT.md`](docs/EVAL_REPORT.md) — fixture run (no LLM).
+- [`docs/EVAL_REPORT.md`](docs/EVAL_REPORT.md) — produced by `run_eval.py` (default: Gemini on fixture images; `--fixture` for offline harness).
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/COMPONENT_CONTRACTS.md`](docs/COMPONENT_CONTRACTS.md).
 
 ## Layout

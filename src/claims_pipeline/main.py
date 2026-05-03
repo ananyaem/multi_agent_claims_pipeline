@@ -429,8 +429,20 @@ def eval_run(db: Session = Depends(get_db)):
 
 @app.post("/eval/robustness")
 def eval_robustness(db: Session = Depends(get_db)):
-    """Placeholder when fixtures/docs not generated yet."""
-    fixtures = ROOT_DIR / "fixtures" / "docs"
-    if not fixtures.exists():
-        return {"status": "skipped", "reason": "fixtures/docs not present — run scripts/gen_sample_docs.py"}
+    """Placeholder when document fixtures not generated yet."""
+    fixtures_root = ROOT_DIR / "fixtures"
+    legacy_docs = fixtures_root / "docs"
+    has_per_case = (
+        fixtures_root.is_dir()
+        and any(
+            p.is_dir() and p.name.startswith("TC") and any(p.iterdir())
+            for p in fixtures_root.iterdir()
+        )
+    )
+    has_legacy = legacy_docs.is_dir() and any(legacy_docs.iterdir())
+    if not (has_per_case or has_legacy):
+        return {
+            "status": "skipped",
+            "reason": "fixtures/TC* not present (or legacy fixtures/docs) — run scripts/gen_sample_docs.py",
+        }
     return {"status": "not_implemented_in_api", "hint": "run scripts/run_robustness_eval.py"}

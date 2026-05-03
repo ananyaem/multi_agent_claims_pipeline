@@ -4,6 +4,9 @@ import asyncio
 import uuid
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from claims_pipeline.claims_history_db import enrich_submission_claims_history_from_db
 from claims_pipeline.pipeline.agents import adjudication, cross_validation, doc_verification, extraction, fraud, intake
 from claims_pipeline.pipeline.agents import policy_engine as policy_engine_mod
 from claims_pipeline.pipeline.agents import readability, visual_classification, waiting_period_medical
@@ -49,7 +52,9 @@ async def run_pipeline_async(
     llm_provider: Any | None = None,
     trace: TraceCollector | None = None,
     claim_id: str | None = None,
+    db: Session | None = None,
 ) -> PipelineContext:
+    enrich_submission_claims_history_from_db(db, submission)
     cid = claim_id or submission.get("claim_id") or str(uuid.uuid4())
     ctx = PipelineContext(
         claim_id=cid,
@@ -166,6 +171,7 @@ def run_pipeline_sync(
     llm_provider: Any | None = None,
     trace: TraceCollector | None = None,
     claim_id: str | None = None,
+    db: Session | None = None,
 ) -> PipelineContext:
     return asyncio.run(
         run_pipeline_async(
@@ -176,5 +182,6 @@ def run_pipeline_sync(
             llm_provider,
             trace,
             claim_id=claim_id,
+            db=db,
         )
     )

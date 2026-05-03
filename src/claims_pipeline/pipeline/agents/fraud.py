@@ -14,6 +14,7 @@ def run_fraud(ctx: PipelineContext) -> None:
         ctx.add_step_confidence(0.5, step="FraudAgent")
         return
 
+    # Populated server-side from DB by treatment_date + member_id (see claims_history_db).
     hist = ctx.submission.get("claims_history") or []
     tdate = ctx.submission.get("treatment_date", "")[:10]
     same_day = [c for c in hist if str(c.get("date", ""))[:10] == tdate]

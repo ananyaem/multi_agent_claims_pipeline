@@ -405,17 +405,20 @@ def analytics_csv(db: Session = Depends(get_db)):
 
 @app.post("/eval/run")
 def eval_run(db: Session = Depends(get_db)):
+    from claims_pipeline.eval_db_seed import seed_eval_prior_claims_for_case
     from claims_pipeline.pipeline.orchestrator import run_pipeline_sync
     from claims_pipeline.policy import PolicyService
 
     with open(TEST_CASES_PATH, encoding="utf-8") as f:
         bundle = json.load(f)
+    seed_policy_and_members(db)
     pv_id, terms = get_active_policy_terms(db)
     svc = PolicyService(terms)
     results = []
     for case in bundle["test_cases"]:
         cid = case["case_id"]
-        ctx = run_pipeline_sync(case["input"], terms, pv_id, svc, llm_provider=None)
+        seed_eval_prior_claims_for_case(db, cid)
+        ctx = run_pipeline_sync(case["input"], terms, pv_id, svc, llm_provider=None, db=db)
         results.append(
             {
                 "case_id": cid,

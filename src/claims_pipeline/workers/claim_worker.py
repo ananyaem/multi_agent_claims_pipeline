@@ -85,6 +85,7 @@ def main() -> None:
                 llm_provider=llm,
                 trace=None,
                 claim_id=claim_id,
+                db=db,
             )
             persist_result(db, ctx, submission)
             logger.info("Processed claim %s decision=%s", claim_id, ctx.decision)

@@ -7,3 +7,11 @@ comparison/
 
 *.pyc
 *.pyo
+__pycache__/
+
+*.egg-info/
+dist/
+build/
+
+claims.db
+*.db-journal

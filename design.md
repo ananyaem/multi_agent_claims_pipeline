@@ -41,3 +41,4 @@
 - Look at policy_terms.json and test_cases.json to find which fields etc to put in the db
 - Will need to buy credits of Gemini or OpenAI or any other decent LLM, MVP so cost not much problem (low scale)
 - Look at free/cheap hosting which allows to deploy a docker
+- Confidence can be harmonic score/F1 score

@@ -59,6 +59,13 @@ def main() -> None:
                         "confidence": conf,
                     }
                 )
+            elif op == "waiting_period":
+                data, conf = gemini.assess_waiting_period_clinical(
+                    payload["claim_id"],
+                    payload.get("clinical_bundle") or "",
+                    payload.get("condition_catalog") or [],
+                )
+                out = json.dumps({"ok": True, "data": data, "confidence": conf})
             else:
                 data, conf = gemini.extract_document(
                     payload["claim_id"],

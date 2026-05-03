@@ -5,14 +5,16 @@ from typing import Any
 
 from claims_pipeline.pipeline.context import PipelineContext
 
+# Minimum confidence from WaitingPeriodMedicalAgent for a related=true match to bind coverage
+_RELATED_CONFIDENCE_MIN = 0.55
+
 
 def _parse_date(s: str) -> datetime:
     return datetime.strptime(s[:10], "%Y-%m-%d")
 
 
-def _diabetes_related(diagnosis: str) -> bool:
-    d = diagnosis.lower()
-    return "diabetes" in d or "t2dm" in d or "diabet" in d
+def _humanize_condition_key(key: str) -> str:
+    return key.replace("_", " ")
 
 
 def _obesity_related(diagnosis: str, line_desc: str) -> bool:
@@ -52,7 +54,7 @@ def run_policy_engine(ctx: PipelineContext) -> None:
     hospital_name = ctx.submission.get("hospital_name")
     for ed in ctx.extracted_documents:
         data = ed.get("data") or {}
-        if data.get("diagnosis"):
+        if data.get("diagnosis") and not diagnosis:
             diagnosis = data["diagnosis"]
         if data.get("line_items"):
             line_items.extend(data["line_items"])
@@ -72,24 +74,53 @@ def run_policy_engine(ctx: PipelineContext) -> None:
         ctx.network_hospital = any(n in hl or hl in n for n in network_list)
         ctx.hospital_name_for_network = hospital_name
 
-    # Waiting period — diabetes (TC005)
-    if join and treatment and _diabetes_related(diagnosis):
+    # Waiting periods — driven by WaitingPeriodMedicalAgent (LLM clinical review of extractions)
+    spec_wp = waiting.get("specific_conditions") or {}
+    assessment = ctx.waiting_period_medical or {}
+    matches = assessment.get("matches") if isinstance(assessment.get("matches"), list) else []
+
+    if join and treatment and spec_wp and matches:
         join_d = _parse_date(join)
         treat_d = _parse_date(treatment)
-        days = (treat_d - join_d).days
-        diab_wait = waiting.get("specific_conditions", {}).get("diabetes", 90)
-        if days < diab_wait:
-            eligible = join_d + timedelta(days=diab_wait)
-            findings.append(
-                f"Diabetes-related claim within {diab_wait}-day waiting period "
-                f"(joined {join}, claim date {treatment})."
-            )
+        days_since_join = (treat_d - join_d).days
+        violations: list[tuple[str, int, datetime, str]] = []
+
+        for m in matches:
+            if not isinstance(m, dict) or not m.get("related"):
+                continue
+            try:
+                conf = float(m.get("confidence", 0))
+            except (TypeError, ValueError):
+                conf = 0.0
+            if conf < _RELATED_CONFIDENCE_MIN:
+                continue
+            key = str(m.get("condition_key", "")).strip()
+            if key not in spec_wp:
+                continue
+            try:
+                wait_days = int(spec_wp[key])
+            except (TypeError, ValueError):
+                continue
+            if days_since_join < wait_days:
+                eligible = join_d + timedelta(days=wait_days)
+                ev = str(m.get("clinical_evidence") or "").strip()
+                violations.append((key, wait_days, eligible, ev))
+
+        if violations:
+            # Latest eligibility among violated disease-specific windows (conservative)
+            latest_eligible = max(v[2] for v in violations)
+            keys_str = ", ".join(_humanize_condition_key(v[0]) for v in violations)
+            for key, wait_days, _, ev in violations:
+                findings.append(
+                    f"Waiting period ({_humanize_condition_key(key)}, {wait_days} days): "
+                    f"joined {join}, claim date {treatment}, clinical review cites: {ev or 'see documents'}."
+                )
             rejection_codes.append("WAITING_PERIOD")
             ctx.policy_findings = findings
             ctx.rejection_reasons = rejection_codes
             ctx.member_message = (
-                f"Claims for diabetes-related treatment are not covered until {eligible.strftime('%Y-%m-%d')} "
-                f"based on your policy waiting period (joined {join})."
+                f"Claims related to {keys_str} are not covered until {latest_eligible.strftime('%Y-%m-%d')} "
+                f"based on your policy waiting periods (joined {join})."
             )
             ctx.add_step_confidence(0.96, step="PolicyEngine")
             return

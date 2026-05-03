@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Laplacian variance below this flags severe blur (computed from pixels, not UI).
     readability_hard_laplacian_floor: float = 35.0
 
+    # Required policy documents must exceed this confidence and have non-empty extracted fields.
+    extraction_usable_confidence_floor: float = 0.45
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -34,6 +34,9 @@ class PipelineContext:
     network_hospital: bool = False
     hospital_name_for_network: str | None = None
 
+    # WaitingPeriodMedicalAgent: maps extracted clinical evidence → policy waiting-period keys
+    waiting_period_medical: dict[str, Any] | None = None
+
     # Named step scores for harmonic headline confidence + API breakdown
     step_confidence_records: list[tuple[str, float]] = field(default_factory=list)
     confidence: float | None = None  # headline harmonic aggregate

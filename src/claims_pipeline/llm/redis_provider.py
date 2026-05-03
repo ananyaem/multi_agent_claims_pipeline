@@ -85,3 +85,29 @@ class RedisLLMProvider(LLMProvider):
         if dt is None:
             return None, float(msg.get("confidence", 0.35))
         return str(dt).upper().strip(), float(msg.get("confidence", 0.85))
+
+    def assess_waiting_period_clinical(
+        self,
+        claim_id: str,
+        clinical_bundle: str,
+        condition_catalog: list[dict[str, Any]],
+    ) -> tuple[dict[str, Any], float]:
+        req_id = str(uuid.uuid4())
+        payload = {
+            "operation": "waiting_period",
+            "req_id": req_id,
+            "claim_id": claim_id,
+            "clinical_bundle": clinical_bundle,
+            "condition_catalog": condition_catalog,
+        }
+        self.r.rpush(self.settings.llm_queue, json.dumps(payload))
+        key = f"llm:result:{req_id}"
+        raw = self.r.blpop(key, timeout=self.settings.llm_request_timeout_sec)
+        if raw is None:
+            raise TimeoutError("LLM worker response timeout")
+        _, body = raw
+        msg = json.loads(body.decode("utf-8"))
+        if not msg.get("ok"):
+            raise RuntimeError(msg.get("error", "LLM failure"))
+        data = msg.get("data") or {}
+        return data, float(msg.get("confidence", 0.75))

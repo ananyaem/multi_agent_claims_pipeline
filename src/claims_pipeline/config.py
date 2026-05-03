@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     claims_queue: str = "claims:queue"
     llm_queue: str = "llm:queue"
+    max_upload_bytes: int = 20 * 1024 * 1024  # 20 MiB per file
 
 
 @lru_cache

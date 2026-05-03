@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from contextlib import asynccontextmanager
 from typing import Any
@@ -18,6 +19,39 @@ from claims_pipeline.db import Claim, PolicyVersion, TraceStepORM, init_db
 from claims_pipeline.policy import canonical_json_hash, get_active_policy_terms, seed_policy_and_members
 from claims_pipeline.redis_support import redis_client
 from claims_pipeline.schemas import ClaimSubmission
+
+
+def _workers_health(rc, settings) -> dict[str, dict]:
+    """Queue depths + heartbeat keys written by claim_worker / llm_worker."""
+    now = time.time()
+    out: dict[str, dict] = {}
+
+    def _one(worker_key: str, queue_name: str, label: str) -> None:
+        raw = rc.get(f"worker:heartbeat:{worker_key}")
+        last: float | None = None
+        alive = False
+        if raw:
+            try:
+                s = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else str(raw)
+                last = float(s)
+                alive = (now - last) < 50.0
+            except (ValueError, TypeError):
+                pass
+        try:
+            depth = int(rc.llen(queue_name))
+        except Exception:
+            depth = -1
+        out[label] = {
+            "queue": queue_name,
+            "queue_depth": depth,
+            "alive": alive,
+            "last_heartbeat_age_sec": None if last is None else round(now - last, 1),
+        }
+
+    _one("claim", settings.claims_queue, "claim_worker")
+    _one("llm", settings.llm_queue, "llm_worker")
+    return out
+
 
 ROOT_DIR = ROOT
 
@@ -53,9 +87,12 @@ app = FastAPI(title="Claims Pipeline API", lifespan=lifespan)
 
 @app.get("/health")
 def health(db: Session = Depends(get_db)):
+    settings = get_settings()
     r_ok = True
+    rc = None
     try:
-        redis_client().ping()
+        rc = redis_client()
+        rc.ping()
     except Exception:
         r_ok = False
     db_ok = True
@@ -63,7 +100,24 @@ def health(db: Session = Depends(get_db)):
         db.execute(text("SELECT 1"))
     except Exception:
         db_ok = False
-    return {"status": "ok", "redis": r_ok, "database": db_ok}
+
+    workers: dict[str, dict] | None = None
+    if r_ok and rc is not None:
+        try:
+            workers = _workers_health(rc, settings)
+        except Exception:
+            workers = None
+
+    return {
+        "status": "ok",
+        "redis": r_ok,
+        "database": db_ok,
+        "limits": {
+            "max_upload_bytes": settings.max_upload_bytes,
+            "max_upload_mib": round(settings.max_upload_bytes / (1024 * 1024), 2),
+        },
+        "workers": workers,
+    }
 
 
 @app.get("/policy/active")

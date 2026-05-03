@@ -35,6 +35,7 @@ def persist_result(db: Session, ctx, submission: dict) -> None:
     claim.financial_breakdown = ctx.financial_breakdown or {}
     claim.halted_reason = ctx.halted_reason
     claim.rejection_reasons = ctx.rejection_reasons
+    claim.pipeline_details = getattr(ctx, "pipeline_details", None) or {}
     db.add(
         DecisionEvent(
             claim_id=ctx.claim_id,

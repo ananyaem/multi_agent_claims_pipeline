@@ -91,7 +91,7 @@ def run_policy_engine(ctx: PipelineContext) -> None:
                 f"Claims for diabetes-related treatment are not covered until {eligible.strftime('%Y-%m-%d')} "
                 f"based on your policy waiting period (joined {join})."
             )
-            ctx.add_step_confidence(0.96)
+            ctx.add_step_confidence(0.96, step="PolicyEngine")
             return
 
     # Exclusions — obesity / bariatric (TC012)
@@ -104,7 +104,7 @@ def run_policy_engine(ctx: PipelineContext) -> None:
         ctx.member_message = (
             "This claim falls under policy exclusions for obesity, weight-loss programs, or bariatric-related care."
         )
-        ctx.add_step_confidence(0.94)
+        ctx.add_step_confidence(0.94, step="PolicyEngine")
         return
 
     # Pre-authorization — MRI high value (TC007)
@@ -129,7 +129,7 @@ def run_policy_engine(ctx: PipelineContext) -> None:
                 "Pre-authorization was required for this diagnostic claim but was not obtained. "
                 "Please obtain insurer pre-authorization and resubmit with the approval reference."
             )
-            ctx.add_step_confidence(0.95)
+            ctx.add_step_confidence(0.95, step="PolicyEngine")
             return
 
     # Per-claim limit (TC008) — apply to stated claimed amount for categories where the
@@ -145,9 +145,9 @@ def run_policy_engine(ctx: PipelineContext) -> None:
         ctx.member_message = (
             f"Claim amount ₹{claimed:,.0f} exceeds this policy's per-claim limit of ₹{per_claim:,.0f}."
         )
-        ctx.add_step_confidence(0.97)
+        ctx.add_step_confidence(0.97, step="PolicyEngine")
         return
 
     ctx.policy_findings = findings
     ctx.rejection_reasons = rejection_codes
-    ctx.add_step_confidence(0.94)
+    ctx.add_step_confidence(0.94, step="PolicyEngine")

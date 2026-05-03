@@ -68,10 +68,18 @@ class GeminiProvider(LLMProvider):
         prompt = (
             f"You extract structured data from a medical document image.\n"
             f"Document type hint: {doc_type}\n"
-            f"Return ONLY valid JSON with keys appropriate for this doc type: "
-            f"patient_name, doctor_name, doctor_registration, diagnosis, date, "
-            f"medicines (array), line_items (array of {{description, amount}}), "
-            f"total, hospital_name, tests_ordered (array), etc.\n"
+            "Your JSON MUST include a top-level object `_meta` first (same object), then fields:\n"
+            "`_meta`: {\n"
+            '  "confidence": <number 0-1, how sure you are that extracted values are correct>,\n'
+            '  "readability": "GOOD" | "UNREADABLE",\n'
+            '  "notes": "<short explanation citing blur, glare, crop, or missing sections>"\n'
+            "}\n"
+            "If the photo is too blurry or text cannot be read reliably, set readability to UNREADABLE, "
+            "confidence low (e.g. under 0.45), use null for uncertain fields, and explain in notes.\n"
+            "Outside `_meta`, include keys appropriate for this doc type: "
+            "patient_name, doctor_name, doctor_registration, diagnosis, date, "
+            "medicines (array), line_items (array of {description, amount}), "
+            "total, hospital_name, tests_ordered (array), etc.\n"
             f"Extra hint: {hint}\n"
         )
         contents: list[Any] = [prompt]
@@ -91,10 +99,18 @@ class GeminiProvider(LLMProvider):
             )
             latency_ms = int((time.perf_counter() - t0) * 1000)
             text = resp.text or "{}"
-            data = json.loads(text)
-            conf = 0.85 if image_bytes else 0.75
+            raw = json.loads(text)
+            if not isinstance(raw, dict):
+                raw = {}
+            meta = raw.pop("_meta", None)
+            if isinstance(meta, dict):
+                raw["_extraction_meta"] = meta
+                conf = float(meta.get("confidence", 0.85 if image_bytes else 0.75))
+            else:
+                conf = 0.85 if image_bytes else 0.75
+            conf = max(0.0, min(1.0, conf))
             logger.info("Gemini extract ok claim=%s file=%s ms=%s", claim_id, file_id, latency_ms)
-            return data, conf
+            return raw, conf
         except Exception as e:
             logger.exception("Gemini extract failed: %s", e)
             return {}, 0.35

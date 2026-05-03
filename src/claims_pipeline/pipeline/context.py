@@ -34,9 +34,11 @@ class PipelineContext:
     network_hospital: bool = False
     hospital_name_for_network: str | None = None
 
-    # extraction confidence contributions per doc (for harmonic chain)
-    step_confidences: list[float] = field(default_factory=list)
+    # Named step scores for harmonic headline confidence + API breakdown
+    step_confidence_records: list[tuple[str, float]] = field(default_factory=list)
     confidence: float | None = None  # headline harmonic aggregate
+    confidence_breakdown: dict[str, Any] = field(default_factory=dict)
+    pipeline_details: dict[str, Any] = field(default_factory=dict)
 
-    def add_step_confidence(self, c: float) -> None:
-        self.step_confidences.append(max(0.0, min(1.0, c)))
+    def add_step_confidence(self, c: float, *, step: str = "pipeline") -> None:
+        self.step_confidence_records.append((step, max(0.0, min(1.0, c))))

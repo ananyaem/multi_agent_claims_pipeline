@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     upload_dir: str = ""
     max_upload_bytes: int = 20 * 1024 * 1024  # 20 MiB per file
 
+    # Laplacian variance below this flags severe blur (computed from pixels, not UI).
+    readability_hard_laplacian_floor: float = 35.0
+
 
 @lru_cache
 def get_settings() -> Settings:

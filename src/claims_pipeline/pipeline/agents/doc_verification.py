@@ -19,9 +19,9 @@ def run_document_verification(ctx: PipelineContext, policy: PolicyService) -> No
                 "For an “Other” category claim, please upload at least one document. "
                 "Use document type “OTHERS” if the file does not match a standard type — it will be queued for manual review."
             )
-            ctx.add_step_confidence(0.95)
+            ctx.add_step_confidence(0.95, step="DocumentVerificationAgent")
             return
-        ctx.add_step_confidence(0.97)
+        ctx.add_step_confidence(0.97, step="DocumentVerificationAgent")
         return
     uploaded_types = [d.get("actual_type") for d in docs if d.get("actual_type")]
     counts = Counter(uploaded_types)
@@ -32,7 +32,7 @@ def run_document_verification(ctx: PipelineContext, policy: PolicyService) -> No
             missing.append(rt)
 
     if not missing:
-        ctx.add_step_confidence(0.98)
+        ctx.add_step_confidence(0.98, step="DocumentVerificationAgent")
         return
 
     uploaded_summary = ", ".join(f"{t} ({counts[t]} file(s))" for t in counts if t)
@@ -49,4 +49,4 @@ def run_document_verification(ctx: PipelineContext, policy: PolicyService) -> No
         "required_types": required,
         "missing": missing,
     }
-    ctx.add_step_confidence(0.96)
+    ctx.add_step_confidence(0.96, step="DocumentVerificationAgent")

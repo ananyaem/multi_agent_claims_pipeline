@@ -27,9 +27,11 @@ def run_adjudication(ctx: PipelineContext) -> None:
         }
         if not ctx.member_message:
             ctx.member_message = "Claim rejected based on policy rules."
-        ctx.add_step_confidence(0.93)
+        ctx.add_step_confidence(0.93, step="AdjudicationAgent")
         if ctx.confidence is None:
-            ctx.confidence = aggregate_claim_confidence(ctx.step_confidences, ctx.degraded_components)
+            overall, bd = aggregate_claim_confidence(ctx.step_confidence_records, ctx.degraded_components)
+            ctx.confidence = overall
+            ctx.confidence_breakdown = bd
         return
 
     # Fraud routing (TC009)
@@ -43,9 +45,11 @@ def run_adjudication(ctx: PipelineContext) -> None:
             + " ".join(ctx.fraud_signals)
         )
         ctx.financial_breakdown = {"fraud_signals": ctx.fraud_signals, "fraud_score": ctx.fraud_score}
-        ctx.add_step_confidence(0.87)
+        ctx.add_step_confidence(0.87, step="AdjudicationAgent")
         if ctx.confidence is None:
-            ctx.confidence = aggregate_claim_confidence(ctx.step_confidences, ctx.degraded_components)
+            overall, bd = aggregate_claim_confidence(ctx.step_confidence_records, ctx.degraded_components)
+            ctx.confidence = overall
+            ctx.confidence_breakdown = bd
         return
 
     cat_upper = (ctx.submission.get("claim_category") or "").upper()
@@ -63,9 +67,11 @@ def run_adjudication(ctx: PipelineContext) -> None:
             "route": "manual_review",
             "reason": "OTHERS_CATEGORY" if cat_upper == "OTHERS" else "OTHERS_DOCUMENT_TYPE",
         }
-        ctx.add_step_confidence(0.88)
+        ctx.add_step_confidence(0.88, step="AdjudicationAgent")
         if ctx.confidence is None:
-            ctx.confidence = aggregate_claim_confidence(ctx.step_confidences, ctx.degraded_components)
+            overall, bd = aggregate_claim_confidence(ctx.step_confidence_records, ctx.degraded_components)
+            ctx.confidence = overall
+            ctx.confidence_breakdown = bd
         return
 
     line_items: list[dict[str, Any]] = []
@@ -129,7 +135,9 @@ def run_adjudication(ctx: PipelineContext) -> None:
         f"Claim {ctx.decision.lower()}. Approved amount ₹{ctx.approved_amount:,.2f}. "
         + (" ".join(ctx.policy_findings) if ctx.policy_findings else "")
     )
-    ctx.add_step_confidence(0.94)
+    ctx.add_step_confidence(0.94, step="AdjudicationAgent")
 
     if ctx.confidence is None:
-        ctx.confidence = aggregate_claim_confidence(ctx.step_confidences, ctx.degraded_components)
+        overall, bd = aggregate_claim_confidence(ctx.step_confidence_records, ctx.degraded_components)
+        ctx.confidence = overall
+        ctx.confidence_breakdown = bd

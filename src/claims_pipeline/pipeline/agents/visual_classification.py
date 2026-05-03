@@ -49,7 +49,7 @@ def run_visual_document_classification(ctx: PipelineContext, llm: Any | None) ->
     Skips documents that include embedded fixture `content` (unit tests) or have no file bytes.
     """
     if llm is None:
-        ctx.add_step_confidence(1.0)
+        ctx.add_step_confidence(1.0, step="VisualDocumentClassificationAgent")
         return
 
     docs = ctx.submission.get("documents") or []
@@ -99,7 +99,7 @@ def run_visual_document_classification(ctx: PipelineContext, llm: Any | None) ->
                 "visual_type": visual,
                 "confidence": conf,
             }
-            ctx.add_step_confidence(conf)
+            ctx.add_step_confidence(conf, step="VisualDocumentClassificationAgent")
             return
 
         doc["actual_type"] = visual
@@ -109,8 +109,11 @@ def run_visual_document_classification(ctx: PipelineContext, llm: Any | None) ->
     if degraded:
         ctx.degraded_components.append("VisualClassificationAgent")
     if confidences:
-        ctx.add_step_confidence(sum(confidences) / len(confidences))
+        ctx.add_step_confidence(
+            sum(confidences) / len(confidences),
+            step="VisualDocumentClassificationAgent",
+        )
     elif degraded:
-        ctx.add_step_confidence(0.72)
+        ctx.add_step_confidence(0.72, step="VisualDocumentClassificationAgent")
     else:
-        ctx.add_step_confidence(1.0)
+        ctx.add_step_confidence(1.0, step="VisualDocumentClassificationAgent")

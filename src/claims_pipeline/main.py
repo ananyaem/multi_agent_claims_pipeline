@@ -363,6 +363,7 @@ def get_claim(claim_id: str, db: Session = Depends(get_db)):
         "halted_reason": row.halted_reason,
         "rejection_reasons": row.rejection_reasons,
         "submission": row.submission,
+        "pipeline_details": row.pipeline_details or {},
         "trace_steps": [
             {
                 "seq": t.seq,

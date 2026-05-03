@@ -17,5 +17,14 @@ def test_harmonic_empty():
 
 
 def test_aggregate_with_degraded():
-    c = aggregate_claim_confidence([0.95, 0.95, 0.94, 0.96, 0.91, 0.94, 0.94], ["FraudAgent"])
+    records = [
+        ("IntakeAgent", 0.95),
+        ("DocVerify", 0.95),
+        ("Extract", 0.94),
+        ("CrossVal", 0.96),
+        ("Policy", 0.91),
+        ("Fraud", 0.94),
+        ("Adjudication", 0.94),
+    ]
+    c, _bd = aggregate_claim_confidence(records, ["FraudAgent"])
     assert c < 0.92

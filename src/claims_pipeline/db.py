@@ -14,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
     create_engine,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
@@ -61,6 +62,7 @@ class Claim(Base):
     financial_breakdown: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     halted_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
     rejection_reasons: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
+    pipeline_details: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -127,10 +129,25 @@ def make_engine(database_url: str):
 SessionLocal = None
 
 
+def _sqlite_add_claim_columns(engine):
+    if engine.dialect.name != "sqlite":
+        return
+    try:
+        from sqlalchemy import inspect
+    except ImportError:
+        return
+    insp = inspect(engine)
+    cols = [c["name"] for c in insp.get_columns("claims")]
+    if "pipeline_details" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE claims ADD COLUMN pipeline_details JSON"))
+
+
 def init_db(database_url: str):
     global SessionLocal
     engine = make_engine(database_url)
     Base.metadata.create_all(engine)
+    _sqlite_add_claim_columns(engine)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return engine
 

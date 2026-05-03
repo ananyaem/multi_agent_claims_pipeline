@@ -16,7 +16,7 @@ from claims_pipeline.config import ROOT, get_settings
 
 from claims_pipeline.db import Claim, PolicyVersion, TraceStepORM, init_db
 from claims_pipeline.policy import canonical_json_hash, get_active_policy_terms, seed_policy_and_members
-from claims_pipeline.queue import redis_client
+from claims_pipeline.redis_support import redis_client
 from claims_pipeline.schemas import ClaimSubmission
 
 ROOT_DIR = ROOT

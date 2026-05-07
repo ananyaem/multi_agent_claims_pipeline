@@ -1,0 +1,26 @@
+2026-05-04 01:14:47 INFO starting eval mode=gemini output=/Users/anam/Desktop/Dev/multi_agent_claims_pipeline/docs/EVAL_REPORT.md log_file=/Users/anam/Desktop/Dev/multi_agent_claims_pipeline/docs/EVAL_REPORT_run.log test_cases=/Users/anam/Desktop/Dev/multi_agent_claims_pipeline/assignment/test_cases.json
+2026-05-04 01:14:47 INFO case 1/12 TC001 — Wrong Document Uploaded
+2026-05-04 01:14:53 INFO case TC001 complete halted=WRONG_DOCUMENTS decision=None approved_amount=None confidence=0.9797938144329897
+2026-05-04 01:14:53 INFO case 2/12 TC002 — Unreadable Document
+2026-05-04 01:15:14 INFO case TC002 complete halted=NEEDS_REUPLOAD decision=None approved_amount=None confidence=0.9619255541061495
+2026-05-04 01:15:14 INFO case 3/12 TC003 — Documents Belong to Different Patients
+2026-05-04 01:15:33 INFO case TC003 complete halted=PATIENT_MISMATCH decision=None approved_amount=None confidence=0.9736229498770445
+2026-05-04 01:15:33 INFO case 4/12 TC004 — Clean Consultation — Full Approval
+2026-05-04 01:16:13 INFO case TC004 complete halted=None decision=APPROVED approved_amount=1350.0 confidence=0.9397770815330636
+2026-05-04 01:16:13 INFO case 5/12 TC005 — Waiting Period — Diabetes
+2026-05-04 01:16:50 INFO case TC005 complete halted=None decision=REJECTED approved_amount=0.0 confidence=0.9656270701835518
+2026-05-04 01:16:50 INFO case 6/12 TC006 — Dental Partial Approval — Cosmetic Exclusion
+2026-05-04 01:17:23 INFO case TC006 complete halted=None decision=PARTIAL approved_amount=8000.0 confidence=0.931285314479626
+2026-05-04 01:17:23 INFO case 7/12 TC007 — MRI Without Pre-Authorization
+2026-05-04 01:18:14 INFO case TC007 complete halted=None decision=REJECTED approved_amount=0.0 confidence=0.94046243826246
+2026-05-04 01:18:14 INFO case 8/12 TC008 — Per-Claim Limit Exceeded
+2026-05-04 01:18:46 INFO case TC008 complete halted=None decision=REJECTED approved_amount=0.0 confidence=0.9398617748943144
+2026-05-04 01:18:46 INFO case 9/12 TC009 — Fraud Signal — Multiple Same-Day Claims
+2026-05-04 01:19:19 INFO case TC009 complete halted=None decision=MANUAL_REVIEW approved_amount=None confidence=0.9275908421834551
+2026-05-04 01:19:19 INFO case 10/12 TC010 — Network Hospital — Discount Applied
+2026-05-04 01:19:56 INFO case TC010 complete halted=None decision=APPROVED approved_amount=3240.0 confidence=0.937317428487306
+2026-05-04 01:19:56 INFO case 11/12 TC011 — Component Failure — Graceful Degradation
+2026-05-04 01:20:30 INFO case TC011 complete halted=None decision=APPROVED approved_amount=4000.0 confidence=0.819855945571441
+2026-05-04 01:20:30 INFO case 12/12 TC012 — Excluded Treatment
+2026-05-04 01:21:00 INFO case TC012 complete halted=None decision=REJECTED approved_amount=0.0 confidence=0.9677921167272774
+2026-05-04 01:21:00 INFO wrote report path=/Users/anam/Desktop/Dev/multi_agent_claims_pipeline/docs/EVAL_REPORT.md bytes=111137 duration_s=373.26 cases=12
